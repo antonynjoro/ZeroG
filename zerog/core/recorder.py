@@ -47,6 +47,7 @@ class AudioRecorder:
         self.last_context = "The user is dictating. Valid English text."
         self.bg_transcriber_thread = None
         self.stop_transcribing_event = threading.Event()
+        self._stream_cleanup_thread = None  # Track stream teardown to prevent PortAudio deadlocks
         
         # Silence detection
         self._silence_start_time = None
@@ -206,16 +207,29 @@ class AudioRecorder:
             self.play_sound()
             logger.info("Sound played.")
             
-            try:
-                logger.info("Calling sd.InputStream...")
-                self.stream = sd.InputStream(samplerate=SAMPLE_RATE, channels=1, callback=self.callback)
-                logger.info("Initializing audio stream...")
-                self.stream.start()
-                logger.info("Audio stream started successfully.")
-            except Exception as e:
-                logger.error(f"Failed to start stream: {e}", exc_info=True)
+        # Wait for any previous stream cleanup OUTSIDE the lock — PortAudio on macOS
+        # cannot open a new stream while the old one is still being torn down.
+        if self._stream_cleanup_thread and self._stream_cleanup_thread.is_alive():
+            logger.info("Waiting for previous stream cleanup to finish...")
+            self._stream_cleanup_thread.join(timeout=3.0)
+            if self._stream_cleanup_thread.is_alive():
+                logger.warning("Stream cleanup thread did not finish in time!")
+            else:
+                logger.info("Previous stream cleanup finished.")
+        
+        try:
+            logger.info("Calling sd.InputStream...")
+            new_stream = sd.InputStream(samplerate=SAMPLE_RATE, channels=1, callback=self.callback)
+            logger.info("Initializing audio stream...")
+            new_stream.start()
+            with self._lock:
+                self.stream = new_stream
+            logger.info("Audio stream started successfully.")
+        except Exception as e:
+            logger.error(f"Failed to start stream: {e}", exc_info=True)
+            with self._lock:
                 self.recording = False
-                self._handle_error("Mic Error")
+            self._handle_error("Mic Error")
 
     def stop_recording(self, use_gemini):
         with self._lock:
@@ -242,8 +256,9 @@ class AudioRecorder:
                 except Exception as e:
                     logger.error(f"Error closing stream: {e}")
 
-        # Start cleanup in daemon thread
-        threading.Thread(target=_cleanup_stream, args=(active_stream,), daemon=True).start()
+        # Start cleanup in daemon thread and track it
+        self._stream_cleanup_thread = threading.Thread(target=_cleanup_stream, args=(active_stream,), daemon=True)
+        self._stream_cleanup_thread.start()
         
         threading.Thread(
             target=self.transcribe_and_type, 
