@@ -26,6 +26,7 @@ SILENCE_THRESHOLD = 0.015  # RMS amplitude below which is considered silence
 SILENCE_DURATION = 5.0    # Seconds of silence to trigger auto-stop
 CHUNK_MIN_DURATION = 15.0  # Min duration before evaluating for silence boundaries
 CHUNK_MAX_DURATION = 25.0 # Max duration of a single chunk before forcing transcription
+WHISPER_PAD_DURATION = 8.0 # Pad clips shorter than this to force Whisper's fast execution path
 
 
 class AudioRecorder:
@@ -280,6 +281,14 @@ class AudioRecorder:
                 
             if is_boundary and accumulated_samples > 0:
                 audio_np = np.vstack(accumulated_audio).flatten()
+                
+                # Pad short clips with trailing silence to ensure Whisper uses its efficient
+                # execution path. Short clips (<8s) are disproportionately slow due to constant
+                # FFT/attention overhead — padding amortizes this without changing the transcript.
+                pad_min_samples = int(WHISPER_PAD_DURATION * SAMPLE_RATE)
+                if len(audio_np) < pad_min_samples:
+                    silence = np.zeros(pad_min_samples - len(audio_np), dtype=audio_np.dtype)
+                    audio_np = np.concatenate([audio_np, silence])
                 
                 start_t = time.time()
                 with self._lock:
