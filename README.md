@@ -134,6 +134,9 @@ python -m pytest tests/
 
 ## 📅 Captain's Log
 
+### [v0.10.0] - 2026-02-20
+- **Parallel Chunk Transcription**: Audio is now chunked and transcribed dynamically in the background while you speak, massively reducing wait-time latency for long dictations without losing context.
+
 ### [v0.9.0] - 2026-01-03
 - **Rebrand**: Initiated "ZeroG" protocol.
 - **Brand Guide**: Published `BRANDING.md` for all contributors.

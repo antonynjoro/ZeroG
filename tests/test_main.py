@@ -81,10 +81,9 @@ class TestAudioRecorder(unittest.TestCase):
             mock_stream.stop.assert_called_once()
             mock_stream.close.assert_called_once()
 
-    @patch('zerog.core.recorder.mlx_whisper.transcribe')
     @patch('zerog.core.recorder.state_machine')
     @patch('zerog.core.recorder.pyperclip.copy')
-    def test_transcribe_and_type_no_gemini(self, mock_copy, mock_state_machine, mock_transcribe):
+    def test_transcribe_and_type_no_gemini(self, mock_copy, mock_state_machine):
         # We need to mock the local imports inside inject_text
         with patch('zerog.core.typer.FastTyper.type_text') as mock_type_text, \
              patch('zerog.core.clipboard.ClipboardManager') as mock_clipboard, \
@@ -93,11 +92,8 @@ class TestAudioRecorder(unittest.TestCase):
             # Setup mock to return True for typing success
             mock_type_text.return_value = True
             
-            # Mock transcription result "Hello world"
-            mock_transcribe.return_value = {"text": "Hello world"}
-            
-            # Add dummy audio data to queue
-            self.recorder.audio_queue.put(MagicMock())
+            # Put text directly in the buffer (simulating background transcriber)
+            self.recorder.transcribed_text_buffer = ["Hello world"]
             
             # Action
             self.recorder.transcribe_and_type(use_gemini=False)
@@ -110,10 +106,9 @@ class TestAudioRecorder(unittest.TestCase):
             mock_copy.assert_called_with("Hello world")
             mock_quartz.CGEventCreateKeyboardEvent.assert_called()
     
-    @patch('zerog.core.recorder.mlx_whisper.transcribe')
     @patch('zerog.core.recorder.state_machine')
     @patch('zerog.core.recorder.pyperclip.copy')
-    def test_transcribe_and_type_always_clipboard(self, mock_copy, mock_state_machine, mock_transcribe):
+    def test_transcribe_and_type_always_clipboard(self, mock_copy, mock_state_machine):
         """Test that clipboard is used regardless of text length"""
         with patch('zerog.core.typer.FastTyper.type_text') as mock_type_text, \
              patch('zerog.core.clipboard.ClipboardManager') as mock_clipboard, \
@@ -121,8 +116,7 @@ class TestAudioRecorder(unittest.TestCase):
              
              # Create long text > 1000 chars
              long_text = "A" * 1005
-             mock_transcribe.return_value = {"text": long_text}
-             self.recorder.audio_queue.put(MagicMock())
+             self.recorder.transcribed_text_buffer = [long_text]
              
              # Action
              self.recorder.transcribe_and_type(use_gemini=False)

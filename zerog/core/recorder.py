@@ -24,6 +24,8 @@ SAMPLE_RATE = 16000
 SOUND_FILE = "/System/Library/Sounds/Pop.aiff"
 SILENCE_THRESHOLD = 0.015  # RMS amplitude below which is considered silence
 SILENCE_DURATION = 5.0    # Seconds of silence to trigger auto-stop
+CHUNK_MIN_DURATION = 15.0  # Min duration before evaluating for silence boundaries
+CHUNK_MAX_DURATION = 25.0 # Max duration of a single chunk before forcing transcription
 
 
 class AudioRecorder:
@@ -38,6 +40,12 @@ class AudioRecorder:
         self._preloaded_sound = None  # Pre-loaded sound effect
         self._preloaded_sound = None  # Pre-loaded sound effect
         self._processing_start_time = None  # For latency tracking
+        
+        # Parallel transcription state
+        self.transcribed_text_buffer = []
+        self.last_context = "The user is dictating. Valid English text."
+        self.bg_transcriber_thread = None
+        self.stop_transcribing_event = threading.Event()
         
         # Silence detection
         self._silence_start_time = None
@@ -124,7 +132,9 @@ class AudioRecorder:
 
     def callback(self, indata, frames, time_info, status):
         if self.recording:
-            self.audio_queue.put(indata.copy())
+            chunk = indata.copy()
+            self.audio_queue.put(chunk)
+            
             # Calculate RMS level for waveform visualization (0.0 - 1.0)
             rms = np.sqrt(np.mean(indata**2))
             
@@ -173,6 +183,22 @@ class AudioRecorder:
             self._silence_start_time = None
             self._triggered_silence_stop = False
             
+            # Ensure any previous transcriber thread has completely finished
+            if self.bg_transcriber_thread and self.bg_transcriber_thread.is_alive():
+                logger.info("Waiting for previous transcriber thread to finish before starting new recording...")
+                self.stop_transcribing_event.set()
+                # Do not block the lock while waiting, as the thread needs it
+                self._lock.release()
+                self.bg_transcriber_thread.join(timeout=2.0)
+                self._lock.acquire()
+                
+            # Reset parallel transcription state
+            self.transcribed_text_buffer = []
+            self.last_context = "The user is dictating. Valid English text."
+            self.stop_transcribing_event.clear()
+            self.bg_transcriber_thread = threading.Thread(target=self._background_transcriber, daemon=True)
+            self.bg_transcriber_thread.start()
+            
             self.audio_queue = queue.Queue()
             self.play_sound()
             
@@ -193,6 +219,9 @@ class AudioRecorder:
             self.recording = False
             active_stream = self.stream
             self.stream = None
+
+        # Signal background thread to process remaining chunks and stop
+        self.stop_transcribing_event.set()
 
         self._processing_start_time = time.time()  # Track when user released control
         logger.info(f"Stopping Recording. Gemini={use_gemini}")
@@ -217,45 +246,99 @@ class AudioRecorder:
             daemon=True
         ).start()
 
+    def _background_transcriber(self):
+        import re
+        logger.info("Background transcriber started.")
+        accumulated_audio = []
+        accumulated_samples = 0
+        min_samples = int(CHUNK_MIN_DURATION * SAMPLE_RATE)
+        max_samples = int(CHUNK_MAX_DURATION * SAMPLE_RATE)
+        
+        # Keep looping until we're asked to stop AND the queue is empty AND no audio is left
+        while not self.stop_transcribing_event.is_set() or not self.audio_queue.empty() or accumulated_samples > 0:
+            is_boundary = False
+            try:
+                # Timeout allows us to re-evaluate the while loop conditions
+                chunk = self.audio_queue.get(timeout=0.1)
+                accumulated_audio.append(chunk)
+                accumulated_samples += len(chunk)
+                
+                if accumulated_samples >= max_samples:
+                    is_boundary = True
+                elif accumulated_samples >= min_samples:
+                    rms = np.sqrt(np.mean(chunk**2))
+                    if rms < SILENCE_THRESHOLD:
+                        is_boundary = True
+            except queue.Empty:
+                # If the queue is empty and we are stopping, force remaining audio to process
+                if self.stop_transcribing_event.is_set() and accumulated_samples > 0:
+                    is_boundary = True
+                
+            if is_boundary and accumulated_samples > 0:
+                audio_np = np.vstack(accumulated_audio).flatten()
+                
+                start_t = time.time()
+                with self._lock:
+                    model_path = self._model_dir if self._model_dir else MODEL_PATH
+                    result = mlx_whisper.transcribe(
+                        audio_np, 
+                        path_or_hf_repo=model_path,
+                        language="en",
+                        initial_prompt=self.last_context
+                    )
+                
+                duration = time.time() - start_t
+                text = result["text"].strip()
+                
+                # Remove trailing or leading ellipses/multiple dots created by chunk boundaries
+                # Also handles pure dot-chunks (e.g., "... ... ...")
+                text = re.sub(r'(?:\.\s*){2,}', '', text).strip()
+                
+                logger.info(f"Chunk Transcribed ({accumulated_samples/SAMPLE_RATE:.1f}s audio in {duration:.2f}s): {text}")
+                
+                if text:
+                    # Context boundary fixes: Whisper frequently capitalizes the first word of 
+                    # a new chunk or ends a mid-sentence chunk with a period.
+                    if self.transcribed_text_buffer:
+                        prev = self.transcribed_text_buffer[-1]
+                        
+                        # If previous text ends with an artifact period but this chunk starts 
+                        # lowercase/conjunction, strip the period.
+                        if prev.endswith('.'):
+                            starts_lower = text and text[0].islower()
+                            
+                            # List of common continuation words/phrases (lowercased for matching)
+                            continuations = ('and ', 'but ', 'because ', 'or ', 'so ', 
+                                             'which ', 'where ', 'who ', 'while ', 'even ', 
+                                             'if ', 'then ', 'than ', 'that ', 'when ')
+                            
+                            is_continuation = text.lower().startswith(continuations)
+                            
+                            if starts_lower or is_continuation:
+                                self.transcribed_text_buffer[-1] = prev[:-1].rstrip()
+                                # Lowercase the incoming continuation if Whisper accidentally capped it
+                                if is_continuation and text[0].isupper():
+                                    text = text[0].lower() + text[1:]
+                                    
+                    self.transcribed_text_buffer.append(text)
+                    # Keep last words for context
+                    words = (self.last_context + " " + text).split()
+                    self.last_context = " ".join(words[-50:])
+                    
+                # Reset accumulators for the next chunk
+                accumulated_audio = []
+                accumulated_samples = 0
+                
+        logger.info("Background transcriber finished.")
+
     def transcribe_and_type(self, use_gemini):
         try:
-            logger.info("Transcribe thread started. Checking queue...")
-            if self.audio_queue.empty():
-                logger.info("Queue empty. Resetting to IDLE.")
-                state_machine.set_state(AppState.IDLE)
-                return
-
-            # Optimized batch drain - collect all chunks at once
-            collect_start = time.time()
-            audio_data = []
-            while True:
-                try:
-                    audio_data.append(self.audio_queue.get_nowait())
-                except queue.Empty:
-                    break
+            logger.info("Transcribe and type worker started. Waiting for background transcriber...")
+            if self.bg_transcriber_thread and self.bg_transcriber_thread.is_alive():
+                self.bg_transcriber_thread.join()
             
-            if not audio_data:
-                state_machine.set_state(AppState.IDLE)
-                return
-
-            # Efficient array creation using vstack (faster than concatenate for many small arrays)
-            audio_np = np.vstack(audio_data).flatten()
-            collect_duration = time.time() - collect_start
-            logger.info(f"Collected {len(audio_data)} chunks in {collect_duration*1000:.1f}ms. Shape: {audio_np.shape}")
-            
-            start_t = time.time()
-            with self._lock:
-                model_path = self._model_dir if self._model_dir else MODEL_PATH
-                result = mlx_whisper.transcribe(
-                    audio_np, 
-                    path_or_hf_repo=model_path,
-                    language="en",
-                    initial_prompt="The user is dictating. Valid English text."
-                )
-            
-            whisper_duration = time.time() - start_t
-            text = result["text"].strip()
-            logger.info(f"Whisper finished ({whisper_duration:.2f}s): {text}")
+            text = " ".join(self.transcribed_text_buffer).strip()
+            logger.info(f"Final combined text: {text}")
             
             if text:
                 if use_gemini:
@@ -281,10 +364,9 @@ class AudioRecorder:
                 self.reset_timer = threading.Timer(2.0, lambda: state_machine.set_state(AppState.IDLE))
                 self.reset_timer.start()
             else:
-                logger.info("Whisper returned empty text.")
+                logger.info("No text transcribed.")
                 state_machine.set_state(AppState.IDLE)
             
-
 
         except Exception as e:
             logger.error(f"Transcription Error: {e}", exc_info=True)
