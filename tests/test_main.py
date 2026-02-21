@@ -78,7 +78,7 @@ class TestAudioRecorder(unittest.TestCase):
             cleanup_args = cleanup_call[1]['args']
             cleanup_target(*cleanup_args)
             
-            mock_stream.stop.assert_called_once()
+            mock_stream.abort.assert_called_once()
             mock_stream.close.assert_called_once()
 
     @patch('zerog.core.recorder.state_machine')

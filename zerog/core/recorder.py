@@ -200,9 +200,13 @@ class AudioRecorder:
             self.bg_transcriber_thread.start()
             
             self.audio_queue = queue.Queue()
+            
+            logger.info("Playing notification sound...")
             self.play_sound()
+            logger.info("Sound played.")
             
             try:
+                logger.info("Calling sd.InputStream...")
                 self.stream = sd.InputStream(samplerate=SAMPLE_RATE, channels=1, callback=self.callback)
                 logger.info("Initializing audio stream...")
                 self.stream.start()
@@ -230,10 +234,10 @@ class AudioRecorder:
         def _cleanup_stream(stream_to_close):
             if stream_to_close:
                 try:
-                    # Blocking calls moved off main/event thread
-                    stream_to_close.stop()
+                    # Use abort() instead of stop() to prevent PortAudio deadlocks waiting for callbacks
+                    stream_to_close.abort()
                     stream_to_close.close()
-                    logger.info("Audio stream stopped and closed in background.")
+                    logger.info("Audio stream aborted and closed in background.")
                 except Exception as e:
                     logger.error(f"Error closing stream: {e}")
 
