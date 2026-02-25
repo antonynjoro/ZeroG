@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/debug/ZeroGTests.build/master.swiftdeps"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/ZeroGTests/AppStateMachineTests.swift": {
+    "dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/debug/ZeroGTests.build/AppStateMachineTests.d",
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/debug/ZeroGTests.build/AppStateMachineTests.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/debug/ZeroGTests.build/AppStateMachineTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/debug/ZeroGTests.build/AppStateMachineTests.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/debug/ZeroGTests.build/AppStateMachineTests.dia"
+  }
+}

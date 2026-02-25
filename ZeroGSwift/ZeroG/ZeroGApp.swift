@@ -25,8 +25,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     
     // MARK: Core Components
     
-    private let stateMachine = AppStateMachine()
-    private let transcriptionEngine = TranscriptionEngine()
+    /// All components initialized lazily in applicationDidFinishLaunching
+    /// to avoid actor-isolation issues with stored property default initializers.
+    private var stateMachine: AppStateMachine!
+    private var transcriptionEngine: TranscriptionEngine!
     private var audioRecorder: AudioRecorder!
     private var keyMonitor: KeyMonitor!
     
@@ -48,6 +50,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         GeminiService.configure()
         
         // Initialize core components
+        stateMachine = AppStateMachine()
+        transcriptionEngine = TranscriptionEngine()
+        
         audioRecorder = AudioRecorder(
             stateMachine: stateMachine,
             transcriptionEngine: transcriptionEngine
@@ -71,15 +76,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         keyMonitor.start()
         
         // Load WhisperKit model in background
-        Task {
+        Task.detached { [weak self] in
+            guard let self else { return }
             do {
-                try await transcriptionEngine.initialize()
+                try await self.transcriptionEngine.initialize()
                 print("🧑‍🚀 ZeroG Ready (Native Swift Mode)")
             } catch {
                 print("⚠️ WhisperKit initialization failed: \(error)")
-                await MainActor.run {
-                    stateMachine.transition(to: .error("Model Load Failed"))
-                    stateMachine.resetToIdle(after: 5.0)
+                DispatchQueue.main.async {
+                    self.stateMachine.transition(to: .error("Model Load Failed"))
+                    self.stateMachine.resetToIdle(after: 5.0)
                 }
             }
         }

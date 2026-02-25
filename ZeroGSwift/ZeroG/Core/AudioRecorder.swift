@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import AppKit
 import Combine
 
 // MARK: - Constants
@@ -75,15 +76,15 @@ final class AudioRecorder {
         
         // Ensure we have a valid format
         guard recordingFormat.sampleRate > 0 else {
-            Task { @MainActor in
-                stateMachine.transition(to: .error("No microphone available"))
-                stateMachine.resetToIdle(after: 3.0)
+            DispatchQueue.main.async { [weak self] in
+                self?.stateMachine.transition(to: .error("No microphone available"))
+                self?.stateMachine.resetToIdle(after: 3.0)
             }
             return
         }
         
         // Install tap on the input node for raw audio capture
-        inputNode.installTap(onBus: 0, bufferSize: AudioConstants.bufferSize, format: recordingFormat) { [weak self] buffer, time in
+        inputNode.installTap(onBus: 0, bufferSize: AudioConstants.bufferSize, format: recordingFormat) { [weak self] buffer, _ in
             self?.processAudioBuffer(buffer, format: recordingFormat)
         }
         
@@ -96,9 +97,9 @@ final class AudioRecorder {
             print("[AudioRecorder] Recording started. Format: \(recordingFormat)")
             #endif
         } catch {
-            Task { @MainActor in
-                stateMachine.transition(to: .error("Mic Error: \(error.localizedDescription)"))
-                stateMachine.resetToIdle(after: 3.0)
+            DispatchQueue.main.async { [weak self] in
+                self?.stateMachine.transition(to: .error("Mic Error: \(error.localizedDescription)"))
+                self?.stateMachine.resetToIdle(after: 3.0)
             }
         }
     }
@@ -119,8 +120,8 @@ final class AudioRecorder {
         let audioData: [Float] = sampleQueue.sync { accumulatedSamples }
         
         // Process transcription in the background
-        Task {
-            await transcribeAndInject(audioData: audioData, useGemini: useGemini)
+        Task.detached { [weak self] in
+            await self?.transcribeAndInject(audioData: audioData, useGemini: useGemini)
         }
     }
     
@@ -136,19 +137,27 @@ final class AudioRecorder {
         if format.sampleRate != AudioConstants.sampleRate {
             // Simple downsampling by stride
             let ratio = format.sampleRate / AudioConstants.sampleRate
-            let stride = max(1, Int(ratio))
-            samples = (0..<(frameLength / stride)).map { channelData[$0 * stride] }
+            let step = max(1, Int(ratio))
+            var downsampled: [Float] = []
+            downsampled.reserveCapacity(frameLength / step)
+            for i in stride(from: 0, to: frameLength, by: step) {
+                downsampled.append(channelData[i])
+            }
+            samples = downsampled
         } else {
             samples = Array(UnsafeBufferPointer(start: channelData, count: frameLength))
         }
         
         // Compute RMS for level metering
-        let sumOfSquares = samples.reduce(Float(0)) { $0 + $1 * $1 }
+        var sumOfSquares: Float = 0
+        for sample in samples {
+            sumOfSquares += sample * sample
+        }
         let rms = sqrt(sumOfSquares / Float(max(1, samples.count)))
         let normalizedLevel = min(1.0, rms * 10.0)
         
-        // Publish audio level to HUD (must dispatch to main actor)
-        Task { @MainActor [weak self] in
+        // Publish audio level to HUD (dispatch to main thread)
+        DispatchQueue.main.async { [weak self] in
             self?.stateMachine.audioLevel = normalizedLevel
         }
         
@@ -170,7 +179,7 @@ final class AudioRecorder {
                 print("[AudioRecorder] Silence detected (>\(AudioConstants.silenceDuration)s). Auto-stopping.")
                 #endif
                 
-                Task { @MainActor [weak self] in
+                DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
                     let gemini = self.stateMachine.useGemini
                     self.stateMachine.transition(to: .processing)
@@ -187,8 +196,8 @@ final class AudioRecorder {
     /// Transcribe audio data using WhisperKit and inject the result.
     private func transcribeAndInject(audioData: [Float], useGemini: Bool) async {
         guard !audioData.isEmpty else {
-            await MainActor.run {
-                stateMachine.transition(to: .idle)
+            DispatchQueue.main.async { [weak self] in
+                self?.stateMachine.transition(to: .idle)
             }
             return
         }
@@ -207,8 +216,8 @@ final class AudioRecorder {
             #endif
             
             guard !text.isEmpty else {
-                await MainActor.run {
-                    stateMachine.transition(to: .idle)
+                DispatchQueue.main.async { [weak self] in
+                    self?.stateMachine.transition(to: .idle)
                 }
                 return
             }
@@ -222,18 +231,18 @@ final class AudioRecorder {
             // Inject text
             TextInjector.injectText(finalText)
             
-            await MainActor.run {
-                stateMachine.transition(to: .success)
-                stateMachine.resetToIdle()
+            DispatchQueue.main.async { [weak self] in
+                self?.stateMachine.transition(to: .success)
+                self?.stateMachine.resetToIdle()
             }
             
         } catch {
             #if DEBUG
             print("[AudioRecorder] Transcription error: \(error)")
             #endif
-            await MainActor.run {
-                stateMachine.transition(to: .error("Processing Failed"))
-                stateMachine.resetToIdle(after: 3.0)
+            DispatchQueue.main.async { [weak self] in
+                self?.stateMachine.transition(to: .error("Processing Failed"))
+                self?.stateMachine.resetToIdle(after: 3.0)
             }
         }
     }

@@ -3,12 +3,9 @@ import Testing
 
 // MARK: - AppStateMachine Tests
 
-/// Tests for the Combine-based state machine.
-/// Validates state transitions, reset behavior, and published property updates.
 struct AppStateMachineTests {
     
     @Test("Initial state is idle")
-    @MainActor
     func initialState() {
         let machine = AppStateMachine()
         #expect(machine.currentState == .idle)
@@ -17,7 +14,6 @@ struct AppStateMachineTests {
     }
     
     @Test("Transition from idle to recording")
-    @MainActor
     func transitionToRecording() {
         let machine = AppStateMachine()
         machine.transition(to: .recording)
@@ -25,7 +21,6 @@ struct AppStateMachineTests {
     }
     
     @Test("Full lifecycle: idle → recording → processing → success → idle")
-    @MainActor
     func fullLifecycle() {
         let machine = AppStateMachine()
         
@@ -43,7 +38,6 @@ struct AppStateMachineTests {
     }
     
     @Test("Error state carries message")
-    @MainActor
     func errorState() {
         let machine = AppStateMachine()
         machine.transition(to: .error("Mic Error"))
@@ -56,16 +50,14 @@ struct AppStateMachineTests {
     }
     
     @Test("Duplicate transition is ignored")
-    @MainActor
     func duplicateTransition() {
         let machine = AppStateMachine()
         machine.transition(to: .recording)
-        machine.transition(to: .recording) // Should not panic or change
+        machine.transition(to: .recording)
         #expect(machine.currentState == .recording)
     }
     
     @Test("Audio level updates independently of state")
-    @MainActor
     func audioLevel() {
         let machine = AppStateMachine()
         machine.audioLevel = 0.75
@@ -73,7 +65,6 @@ struct AppStateMachineTests {
     }
     
     @Test("useGemini flag resets independently")
-    @MainActor
     func geminiFlag() {
         let machine = AppStateMachine()
         machine.useGemini = true

@@ -22,7 +22,7 @@ struct HUDContentView: View {
     
     /// Animated glow intensity from audio level.
     @State private var glowIntensity: CGFloat = 0.0
-    @State private var isSpinning: Bool = false
+    @State private var rotationAngle: Double = 0.0
     
     var body: some View {
         HStack(spacing: 8) {
@@ -44,18 +44,24 @@ struct HUDContentView: View {
                 .stroke(borderColor, lineWidth: 1)
         )
         .shadow(color: glowColor.opacity(Double(glowIntensity) * 0.6), radius: CGFloat(10 + glowIntensity * 30))
-        .onChange(of: stateMachine.audioLevel) { _, newLevel in
-            withAnimation(.easeOut(duration: newLevel > glowIntensity ? 0.12 : 0.6)) {
+        .onReceive(stateMachine.$audioLevel) { newLevel in
+            withAnimation(.easeOut(duration: newLevel > Float(glowIntensity) ? 0.12 : 0.6)) {
                 glowIntensity = CGFloat(min(1.0, newLevel * 5.0))
             }
         }
-        .onChange(of: stateMachine.currentState) { _, newState in
-            if case .recording = newState {
-                isSpinning = true
-            } else {
-                isSpinning = false
+        .onReceive(stateMachine.$currentState) { newState in
+            switch newState {
+            case .recording, .processing:
+                startSpinning()
+            default:
                 glowIntensity = 0
             }
+        }
+    }
+    
+    private func startSpinning() {
+        withAnimation(.linear(duration: 3.0).repeatForever(autoreverses: false)) {
+            rotationAngle = 360
         }
     }
     
@@ -74,8 +80,7 @@ struct HUDContentView: View {
                 Circle()
                     .trim(from: 0, to: 0.5)
                     .stroke(HUDColors.warningGold, lineWidth: 2)
-                    .rotationEffect(.degrees(isSpinning ? 360 : 0))
-                    .animation(.linear(duration: 3.0).repeatForever(autoreverses: false), value: isSpinning)
+                    .rotationEffect(.degrees(rotationAngle))
                 
                 // Mic icon
                 Image(systemName: "mic.fill")
@@ -96,9 +101,7 @@ struct HUDContentView: View {
                         ),
                         lineWidth: 2
                     )
-                    .rotationEffect(.degrees(isSpinning ? 360 : 0))
-                    .animation(.linear(duration: 1.0).repeatForever(autoreverses: false), value: isSpinning)
-                    .onAppear { isSpinning = true }
+                    .rotationEffect(.degrees(rotationAngle))
                 
                 Image(systemName: "ellipsis")
                     .font(.system(size: 14, weight: .medium))
@@ -107,12 +110,6 @@ struct HUDContentView: View {
             case .success:
                 Circle()
                     .fill(HUDColors.linkGreen.opacity(0.1))
-                
-                Circle()
-                    .stroke(HUDColors.linkGreen.opacity(0.5), lineWidth: 1)
-                    .scaleEffect(1.5)
-                    .opacity(0)
-                    .animation(.easeOut(duration: 1.0), value: stateMachine.currentState)
                 
                 Image(systemName: "checkmark")
                     .font(.system(size: 16, weight: .bold))
@@ -140,54 +137,39 @@ struct HUDContentView: View {
             switch stateMachine.currentState {
             case .recording:
                 Text("ZeroG Link")
-                    .font(.custom("JetBrains Mono", size: 9))
-                    .fontWeight(.bold)
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundColor(HUDColors.signalWhite.opacity(0.6))
                     .textCase(.uppercase)
-                    .tracking(1.5)
                 
                 Text("TRANSMITTING...")
-                    .font(.custom("JetBrains Mono", size: 12))
-                    .fontWeight(.bold)
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
                     .foregroundColor(HUDColors.warningGold)
-                    .tracking(2)
                 
             case .processing:
                 Text("PROCESSING")
-                    .font(.custom("JetBrains Mono", size: 9))
-                    .fontWeight(.bold)
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundColor(HUDColors.signalWhite.opacity(0.6))
                     .textCase(.uppercase)
-                    .tracking(1.5)
                 
                 Text("CALCULATING...")
-                    .font(.custom("JetBrains Mono", size: 12))
-                    .fontWeight(.bold)
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
                     .foregroundColor(HUDColors.signalWhite)
-                    .tracking(2)
                     .opacity(0.8)
-                    .animation(.easeInOut(duration: 1.0).repeatForever(), value: stateMachine.currentState)
                 
             case .success:
                 Text("ESTABLISHED")
-                    .font(.custom("JetBrains Mono", size: 12))
-                    .fontWeight(.bold)
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
                     .foregroundColor(HUDColors.linkGreen)
-                    .tracking(2)
                 
             case .error(let message):
                 Text("TURBULENCE")
-                    .font(.custom("JetBrains Mono", size: 9))
-                    .fontWeight(.bold)
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundColor(HUDColors.alertRose.opacity(0.7))
                     .textCase(.uppercase)
-                    .tracking(1.5)
                 
                 Text(message.uppercased())
-                    .font(.custom("JetBrains Mono", size: 12))
-                    .fontWeight(.bold)
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
                     .foregroundColor(.white.opacity(0.9))
-                    .tracking(2)
                     .lineLimit(1)
                 
             case .idle:
@@ -222,21 +204,19 @@ struct HUDContentView: View {
 // MARK: - HUD Panel Controller
 
 /// Manages the floating NSPanel that hosts the SwiftUI HUD view.
-/// Handles slide-in/slide-out animations, multi-monitor positioning, and click-through behavior.
 final class HUDPanelController {
     
     // MARK: Properties
     
     private var panel: NSPanel!
-    private var hostingView: NSHostingView<HUDContentView>!
     private var isVisible = false
-    private var cancellables = Set<AnyCancellable>()
+    private var cancellable: AnyCancellable?
     
     private let stateMachine: AppStateMachine
     
     // MARK: Dimensions
     
-    private let hudWidth: CGFloat = 525   // +50% padding for the pill (same as Python)
+    private let hudWidth: CGFloat = 525
     private let hudHeight: CGFloat = 300
     
     // MARK: Positioning
@@ -266,12 +246,11 @@ final class HUDPanelController {
             defer: false
         )
         
-        // Configure panel behavior
-        panel.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()) + 1)
+        panel.level = .screenSaver
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = false
-        panel.ignoresMouseEvents = true  // Click-through
+        panel.ignoresMouseEvents = true
         panel.isFloatingPanel = true
         panel.hidesOnDeactivate = false
         panel.canHide = false
@@ -279,16 +258,12 @@ final class HUDPanelController {
         
         // Create SwiftUI hosting view
         let hudView = HUDContentView(stateMachine: stateMachine)
-        hostingView = NSHostingView(rootView: hudView)
+        let hostingView = NSHostingView(rootView: hudView)
         hostingView.frame = panel.contentView!.bounds
         hostingView.autoresizingMask = [.width, .height]
         
-        // Make hosting view background transparent
-        hostingView.layer?.backgroundColor = .clear
-        
         panel.contentView?.addSubview(hostingView)
         
-        // Calculate initial position
         updatePosition()
         panel.setFrameOrigin(NSPoint(x: centerX, y: hiddenY))
         
@@ -299,7 +274,7 @@ final class HUDPanelController {
     // MARK: - State Observation
     
     private func observeState() {
-        stateMachine.$currentState
+        cancellable = stateMachine.$currentState
             .receive(on: DispatchQueue.main)
             .sink { [weak self] state in
                 guard let self else { return }
@@ -309,17 +284,15 @@ final class HUDPanelController {
                     self.slideIn()
                 }
             }
-            .store(in: &cancellables)
     }
     
     // MARK: - Positioning
     
-    /// Update HUD position to center above dock on the screen containing the mouse cursor.
     private func updatePosition() {
         let mouseLocation = NSEvent.mouseLocation
         let targetScreen = NSScreen.screens.first(where: { NSPointInRect(mouseLocation, $0.frame) })
             ?? NSScreen.main
-            ?? NSScreen.screens.first!
+            ?? NSScreen.screens[0]
         
         let visibleFrame = targetScreen.visibleFrame
         
@@ -331,9 +304,6 @@ final class HUDPanelController {
     // MARK: - Slide Animations
     
     private func slideIn() {
-        // Cancel pending orderOut
-        NSObject.cancelPreviousPerformRequests(withTarget: panel as Any)
-        
         if isVisible {
             panel.orderFrontRegardless()
             return
@@ -342,7 +312,6 @@ final class HUDPanelController {
         updatePosition()
         isVisible = true
         
-        // Start slightly below target
         let startY = visibleY - 20
         panel.setFrameOrigin(NSPoint(x: centerX, y: startY))
         panel.alphaValue = 0.0

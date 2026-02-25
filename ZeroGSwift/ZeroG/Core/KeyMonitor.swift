@@ -19,12 +19,6 @@ private enum KeyCode {
 /// consuming 2–5% CPU at idle. This implementation uses `CGEvent.tapCreate()` —
 /// an OS-level callback that fires only when a relevant key event occurs.
 /// Idle CPU usage: <0.1%.
-///
-/// ## Usage
-/// ```swift
-/// let monitor = KeyMonitor(stateMachine: stateMachine)
-/// monitor.start()
-/// ```
 final class KeyMonitor {
     
     // MARK: Dependencies
@@ -47,10 +41,6 @@ final class KeyMonitor {
     
     // MARK: Lifecycle
     
-    /// - Parameters:
-    ///   - stateMachine: The shared application state machine.
-    ///   - onStartRecording: Called when Control is pressed and the app should start recording.
-    ///   - onStopRecording: Called when Control is released. Bool indicates whether Gemini should be used.
     init(
         stateMachine: AppStateMachine,
         onStartRecording: @escaping () -> Void,
@@ -70,12 +60,10 @@ final class KeyMonitor {
     /// Install a CGEvent tap to monitor modifier key changes globally.
     /// Requires Accessibility permissions (Input Monitoring).
     func start() {
-        // Event mask: we want flagsChanged events (modifier key up/down)
-        // and keyDown events (to detect Q while Control is held)
+        // Event mask: flagsChanged (modifier keys) + keyDown (to detect Q)
         let eventMask: CGEventMask = (1 << CGEventType.flagsChanged.rawValue) | (1 << CGEventType.keyDown.rawValue)
         
-        // Create the event tap
-        // We store `self` as an Unmanaged pointer to pass into the C callback
+        // Store `self` as an Unmanaged pointer to pass into the C callback
         let refcon = Unmanaged.passUnretained(self).toOpaque()
         
         guard let tap = CGEvent.tapCreate(
@@ -83,12 +71,35 @@ final class KeyMonitor {
             place: .headInsertEventTap,
             options: .defaultTap,
             eventsOfInterest: eventMask,
-            callback: keyMonitorCallback,
+            callback: { (proxy, type, event, userInfo) -> Unmanaged<CGEvent>? in
+                // Handle tap being disabled by the system
+                if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                    return Unmanaged.passRetained(event)
+                }
+                
+                if let userInfo = userInfo {
+                    let monitor = Unmanaged<KeyMonitor>.fromOpaque(userInfo).takeUnretainedValue()
+                    monitor.handleEvent(event)
+                }
+                
+                return Unmanaged.passRetained(event)
+            },
             userInfo: refcon
         ) else {
-            #if DEBUG
-            print("[KeyMonitor] Failed to create event tap. Check Input Monitoring permissions.")
-            #endif
+            let processName = ProcessInfo.processInfo.processName
+            let parentApp = Bundle.main.bundleIdentifier ?? "this app"
+            print("""
+            ⚠️ [KeyMonitor] Failed to create event tap!
+            
+            To fix this, grant Input Monitoring permissions:
+              1. Open System Settings → Privacy & Security → Input Monitoring
+              2. Click '+' and add the app that launched ZeroG
+                 (e.g., Terminal.app, Xcode.app, or iTerm.app)
+              3. Also add it under Accessibility
+              4. Restart ZeroG
+            
+            Process: \(processName) | Bundle: \(parentApp)
+            """)
             return
         }
         
@@ -129,8 +140,8 @@ final class KeyMonitor {
     
     // MARK: - Event Handling
     
-    /// Process a raw CGEvent. Called from the C callback on the tap's run loop.
-    fileprivate func handleEvent(_ event: CGEvent) {
+    /// Process a raw CGEvent from the tap callback.
+    private func handleEvent(_ event: CGEvent) {
         let type = event.type
         
         // Handle modifier key changes (Control press/release)
@@ -143,10 +154,8 @@ final class KeyMonitor {
             guard keyCode == Int64(KeyCode.leftControl) else { return }
             
             if isCtrlNow && !isControlPressed {
-                // Control just pressed
                 controlPressed()
             } else if !isCtrlNow && isControlPressed {
-                // Control just released
                 controlReleased()
             }
         }
@@ -156,7 +165,7 @@ final class KeyMonitor {
             let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
             if keyCode == Int64(KeyCode.q) && !isQPressedDuringSession {
                 isQPressedDuringSession = true
-                Task { @MainActor [weak self] in
+                DispatchQueue.main.async { [weak self] in
                     self?.stateMachine.useGemini = true
                 }
                 
@@ -172,7 +181,7 @@ final class KeyMonitor {
     private func controlPressed() {
         isControlPressed = true
         
-        Task { @MainActor [weak self] in
+        DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             let state = self.stateMachine.currentState
             
@@ -195,7 +204,7 @@ final class KeyMonitor {
         timeoutTimer?.invalidate()
         timeoutTimer = nil
         
-        Task { @MainActor [weak self] in
+        DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             let state = self.stateMachine.currentState
             
@@ -221,45 +230,9 @@ final class KeyMonitor {
             #endif
             
             self.isControlPressed = false
-            
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                let useGemini = self.isQPressedDuringSession
-                self.stateMachine.transition(to: .processing)
-                self.onStopRecording(useGemini)
-            }
+            let useGemini = self.isQPressedDuringSession
+            self.stateMachine.transition(to: .processing)
+            self.onStopRecording(useGemini)
         }
     }
-}
-
-// MARK: - C Callback
-
-/// Global C function callback for the CGEvent tap.
-/// Converts the opaque `userInfo` back to a `KeyMonitor` and delegates event handling.
-private func keyMonitorCallback(
-    proxy: CGEventTapProxy,
-    type: CGEventType,
-    event: CGEvent,
-    userInfo: UnsafeMutableRawPointer?
-) -> Unmanaged<CGEvent>? {
-    
-    // Handle tap being disabled by the system (e.g., due to high load)
-    if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-        // Re-enable the tap
-        if let userInfo = userInfo {
-            let monitor = Unmanaged<KeyMonitor>.fromOpaque(userInfo).takeUnretainedValue()
-            if let tap = monitor.eventTap {
-                CGEvent.tapEnable(tap: tap, enable: true)
-            }
-        }
-        return Unmanaged.passRetained(event)
-    }
-    
-    if let userInfo = userInfo {
-        let monitor = Unmanaged<KeyMonitor>.fromOpaque(userInfo).takeUnretainedValue()
-        monitor.handleEvent(event)
-    }
-    
-    // Pass the event through (don't swallow it)
-    return Unmanaged.passRetained(event)
 }

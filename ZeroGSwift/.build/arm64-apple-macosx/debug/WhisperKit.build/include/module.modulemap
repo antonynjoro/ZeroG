@@ -1,0 +1,3 @@
+module WhisperKit {
+    header "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/debug/WhisperKit.build/include/WhisperKit-Swift.h"
+}

@@ -25,32 +25,22 @@ final class GeminiService {
     
     // MARK: Initialization
     
-    /// Initialize the Gemini service with an API key and system instruction.
-    ///
-    /// - Parameters:
-    ///   - apiKey: Google AI API key.
-    ///   - systemInstruction: Prompt template loaded from `gemini_prompt.txt`.
     init(apiKey: String, systemInstruction: String) {
         self.model = GenerativeModel(
             name: Self.modelName,
             apiKey: apiKey,
             generationConfig: GenerationConfig(
                 temperature: 0.0,
-                maxOutputTokens: 4096,
-                responseMIMEType: "text/plain"
+                maxOutputTokens: 4096
             ),
-            systemInstruction: ModelContent(
-                role: "system",
-                parts: [.text(systemInstruction)]
-            )
+            systemInstruction: ModelContent(parts: [.text(systemInstruction)])
         )
     }
     
-    /// Initialize the shared instance from configuration (API key and prompt file).
+    /// Initialize the shared instance from configuration.
     /// Call once at app startup.
     static func configure() {
-        guard let apiKey = ProcessInfo.processInfo.environment["GOOGLE_API_KEY"]
-                ?? UserDefaults.standard.string(forKey: "GOOGLE_API_KEY"),
+        guard let apiKey = ProcessInfo.processInfo.environment["GOOGLE_API_KEY"],
               !apiKey.isEmpty else {
             #if DEBUG
             print("[GeminiService] No GOOGLE_API_KEY found. Gemini processing disabled.")
@@ -74,7 +64,7 @@ final class GeminiService {
         #endif
         
         // Warmup (non-blocking)
-        Task {
+        Task.detached {
             await shared?.warmup()
         }
     }
@@ -82,9 +72,6 @@ final class GeminiService {
     // MARK: - Processing
     
     /// Process raw transcription text through Gemini for polishing/formatting.
-    ///
-    /// - Parameter text: Raw transcription text.
-    /// - Returns: Polished text, or the original text if processing fails.
     func process(_ text: String) async -> String {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return text
@@ -115,7 +102,6 @@ final class GeminiService {
     
     // MARK: - Private
     
-    /// Send a lightweight warmup request to prime the HTTP connection.
     private func warmup() async {
         do {
             _ = try await model.generateContent("Warmup.")

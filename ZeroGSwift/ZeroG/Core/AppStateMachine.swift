@@ -19,7 +19,10 @@ enum AppState: Equatable {
 ///
 /// SwiftUI views and controllers observe `@Published` properties directly —
 /// no manual observer registration needed.
-@MainActor
+///
+/// Note: Not marked `@MainActor` on the class to avoid initialization issues.
+/// The `@Published` properties automatically emit on the thread they're set on,
+/// and Combine's `.receive(on: DispatchQueue.main)` handles UI thread dispatch.
 final class AppStateMachine: ObservableObject {
     
     // MARK: Published State
@@ -38,6 +41,7 @@ final class AppStateMachine: ObservableObject {
     // MARK: State Transitions
     
     /// Transition to a new state. Logs the transition for debugging.
+    /// Must be called on the main thread.
     func transition(to newState: AppState) {
         guard newState != currentState else { return }
         
@@ -51,9 +55,8 @@ final class AppStateMachine: ObservableObject {
     
     /// Convenience: transition to `.idle` after a delay (e.g., after success/error display).
     func resetToIdle(after delay: TimeInterval = 2.0) {
-        Task {
-            try? await Task.sleep(for: .seconds(delay))
-            transition(to: .idle)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            self?.transition(to: .idle)
         }
     }
 }

@@ -30,7 +30,7 @@ enum TranscriptionError: LocalizedError {
 /// - ~50× real-time on M1 with large-v3-turbo
 /// - Up to 72× real-time on M2 Ultra (GPU+ANE)
 /// - Zero-copy audio buffer handling
-actor TranscriptionEngine {
+final class TranscriptionEngine {
     
     // MARK: Configuration
     
@@ -42,33 +42,58 @@ actor TranscriptionEngine {
     private var whisperKit: WhisperKit?
     private var isInitialized = false
     
+    /// Serial queue to protect WhisperKit access from concurrent calls.
+    private let transcriptionQueue = DispatchQueue(label: "com.zerog.transcription", qos: .userInitiated)
+    
     // MARK: Initialization
     
-    init(modelName: String = "large-v3-turbo") {
-        self.modelName = modelName
+    /// Ordered list of model names to try (best → most compatible).
+    private static let modelFallbackChain = [
+        "large-v3-v20240930_turbo",  // Best speed/accuracy on M1
+        "large-v3",                   // High accuracy fallback
+        "base.en",                    // Fast, English-only fallback
+    ]
+    
+    init(modelName: String? = nil) {
+        self.modelName = modelName ?? Self.modelFallbackChain[0]
     }
     
     /// Load the WhisperKit model. Call once at app startup.
-    /// This downloads and compiles the model for the current device's Neural Engine.
+    /// Tries models in fallback order until one succeeds.
     func initialize() async throws {
         guard !isInitialized else { return }
         
+        let modelsToTry: [String]
+        if Self.modelFallbackChain.contains(modelName) {
+            // Start from the requested model in the chain
+            let idx = Self.modelFallbackChain.firstIndex(of: modelName) ?? 0
+            modelsToTry = Array(Self.modelFallbackChain[idx...])
+        } else {
+            modelsToTry = [modelName] + Self.modelFallbackChain
+        }
+        
         #if DEBUG
         let startTime = CFAbsoluteTimeGetCurrent()
-        print("[TranscriptionEngine] Loading WhisperKit model: \(modelName)...")
+        print("[TranscriptionEngine] Attempting model load. Chain: \(modelsToTry)")
         #endif
         
-        let config = WhisperKitConfig(
-            model: modelName,
-            computeOptions: ModelComputeOptions(
-                audioEncoderCompute: .cpuAndNeuralEngine,
-                textDecoderCompute: .cpuAndNeuralEngine
-            ),
-            verbose: false
-        )
+        var lastError: Error?
+        for model in modelsToTry {
+            do {
+                print("[TranscriptionEngine] Trying model: \(model)...")
+                whisperKit = try await WhisperKit(model: model, verbose: true)
+                isInitialized = true
+                print("[TranscriptionEngine] ✅ Model loaded: \(model)")
+                break
+            } catch {
+                print("[TranscriptionEngine] ❌ Model '\(model)' failed: \(error.localizedDescription)")
+                lastError = error
+            }
+        }
         
-        whisperKit = try await WhisperKit(config)
-        isInitialized = true
+        guard isInitialized else {
+            throw lastError ?? TranscriptionError.transcriptionFailed("No compatible model found")
+        }
         
         #if DEBUG
         let duration = CFAbsoluteTimeGetCurrent() - startTime
@@ -92,13 +117,7 @@ actor TranscriptionEngine {
             throw TranscriptionError.emptyAudio
         }
         
-        let results = try await kit.transcribe(
-            audioArray: audioArray,
-            decodeOptions: DecodingOptions(
-                language: "en",
-                usePrefillPrompt: true
-            )
-        )
+        let results = try await kit.transcribe(audioArray: audioArray)
         
         // Combine all segment texts
         let text = results
@@ -124,7 +143,7 @@ actor TranscriptionEngine {
     /// Prime the model with a silent audio buffer to eliminate first-transcription cold start.
     private func warmup() async throws {
         let silentAudio = [Float](repeating: 0.0, count: 16_000) // 1 second of silence
-        _ = try await transcribe(silentAudio)
+        _ = try? await transcribe(silentAudio)
         
         #if DEBUG
         print("[TranscriptionEngine] Warmup complete.")
