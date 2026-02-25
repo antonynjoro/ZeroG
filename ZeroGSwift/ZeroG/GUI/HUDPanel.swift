@@ -54,13 +54,16 @@ struct HUDContentView: View {
             case .recording, .processing:
                 startSpinning()
             default:
+                rotationAngle = 0
                 glowIntensity = 0
             }
         }
     }
     
     private func startSpinning() {
-        withAnimation(.linear(duration: 3.0).repeatForever(autoreverses: false)) {
+        // Reset to 0 first so the animation can restart
+        rotationAngle = 0
+        withAnimation(.linear(duration: 2.0).repeatForever(autoreverses: false)) {
             rotationAngle = 360
         }
     }
@@ -74,17 +77,17 @@ struct HUDContentView: View {
             case .recording:
                 // Orbit ring
                 Circle()
-                    .stroke(HUDColors.warningGold.opacity(0.3), lineWidth: 1)
+                    .stroke(HUDColors.warningGold.opacity(0.3), lineWidth: 2)
                 
                 // Spinning arc
                 Circle()
-                    .trim(from: 0, to: 0.5)
-                    .stroke(HUDColors.warningGold, lineWidth: 2)
+                    .trim(from: 0, to: 0.4)
+                    .stroke(HUDColors.warningGold, lineWidth: 3)
                     .rotationEffect(.degrees(rotationAngle))
                 
                 // Mic icon
                 Image(systemName: "mic.fill")
-                    .font(.system(size: 14))
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundColor(HUDColors.warningGold)
                 
             case .processing:
@@ -103,8 +106,8 @@ struct HUDContentView: View {
                     )
                     .rotationEffect(.degrees(rotationAngle))
                 
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 14, weight: .medium))
+                Image(systemName: "waveform")
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundColor(HUDColors.signalWhite)
                 
             case .success:
@@ -136,33 +139,33 @@ struct HUDContentView: View {
         VStack(alignment: .leading, spacing: 2) {
             switch stateMachine.currentState {
             case .recording:
-                Text("ZeroG Link")
+                Text("ZeroG")
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundColor(HUDColors.signalWhite.opacity(0.6))
                     .textCase(.uppercase)
                 
-                Text("TRANSMITTING...")
+                Text("RECORDING...")
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
                     .foregroundColor(HUDColors.warningGold)
                 
             case .processing:
-                Text("PROCESSING")
+                Text("ZeroG")
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundColor(HUDColors.signalWhite.opacity(0.6))
                     .textCase(.uppercase)
                 
-                Text("CALCULATING...")
+                Text("TRANSCRIBING...")
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
                     .foregroundColor(HUDColors.signalWhite)
                     .opacity(0.8)
                 
             case .success:
-                Text("ESTABLISHED")
+                Text("DONE ✓")
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
                     .foregroundColor(HUDColors.linkGreen)
                 
             case .error(let message):
-                Text("TURBULENCE")
+                Text("ERROR")
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundColor(HUDColors.alertRose.opacity(0.7))
                     .textCase(.uppercase)
