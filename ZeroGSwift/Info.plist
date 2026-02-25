@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    
+    <key>CFBundleExecutable</key>
+    <string>ZeroG</string>
+    
+    <key>CFBundleIdentifier</key>
+    <string>com.zerog.app</string>
+    
+    <key>CFBundleName</key>
+    <string>ZeroG</string>
+    
+    <key>CFBundleDisplayName</key>
+    <string>ZeroG</string>
+    
+    <key>CFBundleVersion</key>
+    <string>1.0.0</string>
+    
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    
+    <!-- Hide from Dock (menu-bar-only app) -->
+    <key>LSUIElement</key>
+    <true/>
+    
+    <!-- Privacy descriptions for system permission prompts -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>ZeroG needs microphone access to capture your voice for transcription.</string>
+    
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>ZeroG uses on-device speech recognition to transcribe your voice.</string>
+    
+    <key>NSAppleEventsUsageDescription</key>
+    <string>ZeroG needs automation access to paste transcribed text into your applications.</string>
+    
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+</dict>
+</plist>
