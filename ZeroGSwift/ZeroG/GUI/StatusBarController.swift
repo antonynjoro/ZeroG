@@ -10,6 +10,7 @@ final class StatusBarController {
     
     private var statusItem: NSStatusItem!
     private var statusMenuItem: NSMenuItem!
+    private var geminiMenuItem: NSMenuItem!
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: Dependencies
@@ -30,16 +31,28 @@ final class StatusBarController {
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
-        // Build the dropdown menu
         let menu = NSMenu()
         
-        // Status text (non-clickable, shows current state)
+        // Status text (non-clickable)
         statusMenuItem = NSMenuItem(title: "Starting up...", action: nil, keyEquivalent: "")
         statusMenuItem.isEnabled = false
         menu.addItem(statusMenuItem)
         
         menu.addItem(NSMenuItem.separator())
         
+        // Gemini API key
+        let geminiTitle = geminiMenuTitle()
+        geminiMenuItem = NSMenuItem(
+            title: geminiTitle,
+            action: #selector(showGeminiKeyDialog),
+            keyEquivalent: ""
+        )
+        geminiMenuItem.target = self
+        menu.addItem(geminiMenuItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // Quit
         let quitItem = NSMenuItem(
             title: "Quit ZeroG",
             action: #selector(NSApplication.terminate(_:)),
@@ -48,8 +61,6 @@ final class StatusBarController {
         menu.addItem(quitItem)
         
         statusItem.menu = menu
-        
-        // Set initial icon
         updateUI(for: .loading("Starting up..."))
     }
     
@@ -69,7 +80,6 @@ final class StatusBarController {
     private func updateUI(for state: AppState) {
         guard let button = statusItem.button else { return }
         
-        // Update status text in the menu
         statusMenuItem.title = state.statusText
         
         let symbolName: String
@@ -109,6 +119,49 @@ final class StatusBarController {
             }
             
             button.image = configuredImage
+        }
+    }
+    
+    // MARK: - Gemini Key Dialog
+    
+    private func geminiMenuTitle() -> String {
+        if let preview = GeminiService.storedKeyPreview {
+            return "Gemini API Key: \(preview)"
+        }
+        return "Set Gemini API Key..."
+    }
+    
+    @objc private func showGeminiKeyDialog() {
+        // Bring app to front for the dialog
+        NSApp.activate(ignoringOtherApps: true)
+        
+        let alert = NSAlert()
+        alert.messageText = "Gemini API Key"
+        alert.informativeText = "Enter your Google Gemini API key.\nThis enables grammar correction when you hold Control+Q while recording.\n\nGet a key at: ai.google.dev"
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+        
+        // Add text field
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
+        input.placeholderString = "AIza..."
+        
+        // Pre-fill with existing key if available
+        if let existing = UserDefaults.standard.string(forKey: "GOOGLE_API_KEY") {
+            input.stringValue = existing
+        }
+        
+        alert.accessoryView = input
+        alert.window.initialFirstResponder = input
+        
+        let response = alert.runModal()
+        
+        if response == .alertFirstButtonReturn {
+            let key = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !key.isEmpty {
+                GeminiService.configure(apiKey: key)
+                geminiMenuItem.title = geminiMenuTitle()
+            }
         }
     }
 }

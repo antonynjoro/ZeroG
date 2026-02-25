@@ -40,9 +40,9 @@ final class TranscriptionEngine {
     // MARK: Model Fallback
     
     private static let modelFallbackChain = [
-        "base.en",                    // Fast compile, good for English
+        "small.en",                   // Good accuracy, fast compile on M1
+        "base.en",                    // Fastest fallback
         "large-v3-v20240930_turbo",   // Best accuracy (slow first compile)
-        "large-v3",                   // Highest accuracy
     ]
     
     // MARK: Initialization

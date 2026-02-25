@@ -37,18 +37,40 @@ final class GeminiService {
         )
     }
     
+    private static let apiKeyDefaultsKey = "GOOGLE_API_KEY"
+    
     /// Initialize the shared instance from configuration.
-    /// Call once at app startup.
+    /// Checks UserDefaults first (set via menu bar), then environment variable.
     static func configure() {
-        guard let apiKey = ProcessInfo.processInfo.environment["GOOGLE_API_KEY"],
-              !apiKey.isEmpty else {
-            #if DEBUG
-            print("[GeminiService] No GOOGLE_API_KEY found. Gemini processing disabled.")
-            #endif
+        // Check UserDefaults first, then environment variable
+        let apiKey = UserDefaults.standard.string(forKey: apiKeyDefaultsKey)
+            ?? ProcessInfo.processInfo.environment["GOOGLE_API_KEY"]
+        
+        guard let apiKey, !apiKey.isEmpty else {
+            print("[GeminiService] No API key found. Set one via the ZeroG menu bar. Gemini disabled.")
             return
         }
         
-        // Load the system instruction / prompt template
+        configureWithKey(apiKey)
+    }
+    
+    /// Configure with a specific API key (called from the settings dialog).
+    static func configure(apiKey: String) {
+        UserDefaults.standard.set(apiKey, forKey: apiKeyDefaultsKey)
+        configureWithKey(apiKey)
+        print("[GeminiService] API key saved and configured.")
+    }
+    
+    /// Returns the currently stored API key (masked for display).
+    static var storedKeyPreview: String? {
+        guard let key = UserDefaults.standard.string(forKey: apiKeyDefaultsKey)
+                ?? ProcessInfo.processInfo.environment["GOOGLE_API_KEY"],
+              !key.isEmpty else { return nil }
+        let prefix = String(key.prefix(6))
+        return "\(prefix)...\(String(key.suffix(4)))"
+    }
+    
+    private static func configureWithKey(_ apiKey: String) {
         let systemInstruction: String
         if let promptURL = Bundle.main.url(forResource: "gemini_prompt", withExtension: "txt"),
            let promptContent = try? String(contentsOf: promptURL, encoding: .utf8) {
@@ -58,12 +80,8 @@ final class GeminiService {
         }
         
         shared = GeminiService(apiKey: apiKey, systemInstruction: systemInstruction)
-        
-        #if DEBUG
         print("[GeminiService] Configured with model: \(modelName)")
-        #endif
         
-        // Warmup (non-blocking)
         Task.detached {
             await shared?.warmup()
         }
