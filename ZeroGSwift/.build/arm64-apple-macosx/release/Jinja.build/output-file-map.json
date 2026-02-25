@@ -1,0 +1,91 @@
+{
+  "": {
+    "dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Jinja.d",
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Jinja.o",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/master.swiftdeps"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/checkouts/swift-jinja/Sources/Jinja/AST.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/AST.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/AST~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/AST.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/AST.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/checkouts/swift-jinja/Sources/Jinja/Error.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Error.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Error~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Error.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Error.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/checkouts/swift-jinja/Sources/Jinja/Filters.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Filters.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Filters~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Filters.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Filters.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/checkouts/swift-jinja/Sources/Jinja/Globals.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Globals.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Globals~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Globals.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Globals.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/checkouts/swift-jinja/Sources/Jinja/Interpreter.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Interpreter.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Interpreter~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Interpreter.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Interpreter.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/checkouts/swift-jinja/Sources/Jinja/Lexer.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Lexer.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Lexer~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Lexer.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Lexer.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/checkouts/swift-jinja/Sources/Jinja/Macro.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Macro.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Macro~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Macro.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Macro.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/checkouts/swift-jinja/Sources/Jinja/Parser.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Parser.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Parser~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Parser.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Parser.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/checkouts/swift-jinja/Sources/Jinja/PropertyMembers.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/PropertyMembers.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/PropertyMembers~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/PropertyMembers.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/PropertyMembers.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/checkouts/swift-jinja/Sources/Jinja/Template.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Template.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Template~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Template.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Template.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/checkouts/swift-jinja/Sources/Jinja/Tests.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Tests.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Tests~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Tests.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Tests.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/checkouts/swift-jinja/Sources/Jinja/Token.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Token.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Token~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Token.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Token.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/checkouts/swift-jinja/Sources/Jinja/Utilities.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Utilities.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Utilities~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Utilities.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Utilities.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/checkouts/swift-jinja/Sources/Jinja/Value.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Value.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Value~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Value.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Jinja.build/Value.dia"
+  }
+}

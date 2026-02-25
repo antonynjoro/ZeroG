@@ -185,6 +185,12 @@ final class KeyMonitor {
             guard let self else { return }
             let state = self.stateMachine.currentState
             
+            // Block recording if the model isn't loaded yet
+            guard state.isReady else {
+                print("[KeyMonitor] Ignoring Control press — app not ready (state: \(state))")
+                return
+            }
+            
             switch state {
             case .idle, .success, .error:
                 self.isQPressedDuringSession = false

@@ -1,0 +1,13 @@
+{
+  "": {
+    "dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroGPackageTests.build/ZeroGPackageTests.d",
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroGPackageTests.build/ZeroGPackageTests.o",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroGPackageTests.build/master.swiftdeps"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroGPackageTests.derived/runner.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroGPackageTests.build/runner.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroGPackageTests.build/runner~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroGPackageTests.build/runner.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroGPackageTests.build/runner.dia"
+  }
+}

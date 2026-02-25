@@ -1,0 +1,4 @@
+module yyjson {
+    umbrella header "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/checkouts/yyjson/src/yyjson.h"
+    export *
+}

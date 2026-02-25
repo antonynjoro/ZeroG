@@ -3,14 +3,11 @@ import Cocoa
 
 // MARK: - ZeroG Application Entry Point
 
-/// Native Swift replacement for `main.py` + `app.py`.
-/// Uses SwiftUI App lifecycle with `@NSApplicationDelegateAdaptor` for AppKit integration.
 @main
 struct ZeroGApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     var body: some Scene {
-        // No visible window — the app is status-bar only with a floating HUD
         Settings {
             EmptyView()
         }
@@ -19,14 +16,10 @@ struct ZeroGApp: App {
 
 // MARK: - App Delegate
 
-/// Coordinates initialization of all subsystems.
-/// Replaces `ZeroGApp(NSObject)` from the Python pyobjc version.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     
     // MARK: Core Components
     
-    /// All components initialized lazily in applicationDidFinishLaunching
-    /// to avoid actor-isolation issues with stored property default initializers.
     private var stateMachine: AppStateMachine!
     private var transcriptionEngine: TranscriptionEngine!
     private var audioRecorder: AudioRecorder!
@@ -40,16 +33,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: Application Lifecycle
     
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Hide dock icon — we're a menu-bar-only app
         NSApp.setActivationPolicy(.accessory)
         
-        // Initialize configuration
         Config.load()
-        
-        // Initialize Gemini (if API key is available)
         GeminiService.configure()
         
-        // Initialize core components
+        // Initialize core
         stateMachine = AppStateMachine()
         transcriptionEngine = TranscriptionEngine()
         
@@ -75,17 +64,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Start key monitoring
         keyMonitor.start()
         
-        // Load WhisperKit model in background
+        // Show loading state and download model
+        stateMachine.transition(to: .loading("Starting up..."))
+        
+        // Wire progress updates to the menu bar status
+        transcriptionEngine.onStatusUpdate = { [weak self] message in
+            self?.stateMachine.transition(to: .loading(message))
+        }
+        
         Task.detached { [weak self] in
             guard let self else { return }
             do {
                 try await self.transcriptionEngine.initialize()
-                print("🧑‍🚀 ZeroG Ready (Native Swift Mode)")
+                
+                DispatchQueue.main.async {
+                    self.stateMachine.transition(to: .idle)
+                    print("🧑‍🚀 ZeroG Ready — Hold Control to start recording")
+                }
             } catch {
                 print("⚠️ WhisperKit initialization failed: \(error)")
                 DispatchQueue.main.async {
-                    self.stateMachine.transition(to: .error("Model Load Failed"))
-                    self.stateMachine.resetToIdle(after: 5.0)
+                    self.stateMachine.transition(to: .error("Model Failed"))
                 }
             }
         }

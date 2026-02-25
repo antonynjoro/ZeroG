@@ -75,7 +75,7 @@
     "PYTHON_BASIC_REPL" : "1",
     "SDKROOT" : "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
     "SHELL" : "/bin/zsh",
-    "SHLVL" : "1",
+    "SHLVL" : "2",
     "SSL_CERT_DIR" : "/opt/homebrew/etc/openssl@3/certs",
     "TMPDIR" : "/var/folders/kf/gbdvzt8n2r9gvw3514kjdppr0000gn/T/",
     "USER" : "antony",
@@ -98,7 +98,7 @@
     "__MISE_ORIG_PATH" : "/Users/antony/.pyenv/shims:/opt/homebrew/bin:/opt/homebrew/sbin:/Library/Frameworks/Python.framework/Versions/3.9/bin:/Library/Frameworks/Python.framework/Versions/3.11/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pmk/env/global/bin:/Library/Apple/usr/bin:/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/bin:/Users/antony/.antigravity/antigravity/bin:/opt/homebrew/opt/postgresql@16/bin:/Users/antony/.local/share/mise/installs/node/22.19.0/bin:/Users/antony/.local/bin:/usr/local/opt/rabbitmq/sbin:/Users/antony/.antigravity/extensions/ms-python.debugpy-2025.18.0-darwin-arm64/bundled/scripts/noConfigScripts:/usr/local/opt/rabbitmq/sbin",
     "__MISE_SESSION" : "eAFrX5OTn5iSmhJfkp+fUzxhHZSXnJ+XlplePPGmmn5ocWpRsX5iXkl+XqW+HkRCPzezOFUfwtYryc/NWQNhxxcklmQUT1icmlfWsDgls+imIap2l/zk0tzUvJJi/YCi/KzU5JJi/ajUonx3CBlcnplWsiY1ryy+LLEoPiOxOGNDWrKZgYFpslFysrlZmrG54dqcxJLU4pL40oKUxJLUIwIMcMA4Z1JjyWIASMRPfQ"
   },
-  "inputHash" : "79db036f08ca1647257ff9a0e14efcee0eb7d716d50963b8e91f09ac1cce0455",
+  "inputHash" : "dfa1d0b439b10bedc8017c2366d2564706bd303df8fec73321b02cf87f651d25",
   "output" : "",
   "result" : {
     "exit" : {

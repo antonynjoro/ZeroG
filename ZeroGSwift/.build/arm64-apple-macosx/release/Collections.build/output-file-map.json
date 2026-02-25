@@ -1,0 +1,13 @@
+{
+  "": {
+    "dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Collections.build/Collections.d",
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Collections.build/Collections.o",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Collections.build/master.swiftdeps"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/checkouts/swift-collections/Sources/Collections/Collections.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Collections.build/Collections.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Collections.build/Collections~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Collections.build/Collections.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/Collections.build/Collections.dia"
+  }
+}

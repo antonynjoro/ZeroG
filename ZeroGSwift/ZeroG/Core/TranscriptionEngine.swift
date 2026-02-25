@@ -20,21 +20,10 @@ enum TranscriptionError: LocalizedError {
 // MARK: - Transcription Engine
 
 /// Wraps WhisperKit for on-device speech-to-text using Apple Silicon Neural Engine.
-/// Replaces Python's `mlx_whisper.transcribe()` with a native Swift implementation.
-///
-/// ## Model
-/// Uses `openai/whisper-large-v3-turbo` by default — best accuracy/speed tradeoff on M1.
-/// WhisperKit automatically routes inference to the Neural Engine (ANE) for maximum throughput.
-///
-/// ## Performance
-/// - ~50× real-time on M1 with large-v3-turbo
-/// - Up to 72× real-time on M2 Ultra (GPU+ANE)
-/// - Zero-copy audio buffer handling
 final class TranscriptionEngine {
     
     // MARK: Configuration
     
-    /// The Whisper model variant to use. Turbo models offer the best latency.
     private let modelName: String
     
     // MARK: WhisperKit Instance
@@ -42,49 +31,107 @@ final class TranscriptionEngine {
     private var whisperKit: WhisperKit?
     private var isInitialized = false
     
-    /// Serial queue to protect WhisperKit access from concurrent calls.
+    /// Serial queue to protect WhisperKit access.
     private let transcriptionQueue = DispatchQueue(label: "com.zerog.transcription", qos: .userInitiated)
     
-    // MARK: Initialization
+    /// Callback for status updates during initialization (download progress, model loading phases).
+    var onStatusUpdate: ((String) -> Void)?
     
-    /// Ordered list of model names to try (best → most compatible).
+    // MARK: Model Fallback
+    
     private static let modelFallbackChain = [
-        "large-v3-v20240930_turbo",  // Best speed/accuracy on M1
-        "large-v3",                   // High accuracy fallback
-        "base.en",                    // Fast, English-only fallback
+        "large-v3-v20240930_turbo",
+        "large-v3",
+        "base.en",
     ]
+    
+    // MARK: Initialization
     
     init(modelName: String? = nil) {
         self.modelName = modelName ?? Self.modelFallbackChain[0]
     }
     
-    /// Load the WhisperKit model. Call once at app startup.
-    /// Tries models in fallback order until one succeeds.
+    /// Load the WhisperKit model with progress reporting.
     func initialize() async throws {
         guard !isInitialized else { return }
         
         let modelsToTry: [String]
         if Self.modelFallbackChain.contains(modelName) {
-            // Start from the requested model in the chain
             let idx = Self.modelFallbackChain.firstIndex(of: modelName) ?? 0
             modelsToTry = Array(Self.modelFallbackChain[idx...])
         } else {
             modelsToTry = [modelName] + Self.modelFallbackChain
         }
         
-        #if DEBUG
         let startTime = CFAbsoluteTimeGetCurrent()
         print("[TranscriptionEngine] Attempting model load. Chain: \(modelsToTry)")
-        #endif
         
         var lastError: Error?
         for model in modelsToTry {
             do {
                 print("[TranscriptionEngine] Trying model: \(model)...")
-                whisperKit = try await WhisperKit(model: model, verbose: true)
+                reportStatus("Downloading model: \(model)...")
+                
+                // Step 1: Download the model with progress reporting
+                let modelFolder = try await WhisperKit.download(
+                    variant: model,
+                    progressCallback: { [weak self] progress in
+                        let pct = Int(progress.fractionCompleted * 100)
+                        let message = "Downloading model: \(pct)%"
+                        self?.reportStatus(message)
+                        print("[TranscriptionEngine] \(message)")
+                    }
+                )
+                
+                reportStatus("Loading model into memory...")
+                print("[TranscriptionEngine] Download complete. Loading from: \(modelFolder.path)")
+                
+                // Step 2: Initialize WhisperKit with the downloaded model folder
+                let config = WhisperKitConfig(
+                    modelFolder: modelFolder.path,
+                    computeOptions: ModelComputeOptions(
+                        audioEncoderCompute: .cpuAndNeuralEngine,
+                        textDecoderCompute: .cpuAndNeuralEngine
+                    ),
+                    verbose: true,
+                    prewarm: false,
+                    load: false,
+                    download: false
+                )
+                
+                let kit = try await WhisperKit(config)
+                
+                // Set up model state callback for loading phases
+                kit.modelStateCallback = { [weak self] oldState, newState in
+                    let phase: String
+                    switch newState {
+                    case .loading:
+                        phase = "Loading neural network..."
+                    case .prewarming:
+                        phase = "Warming up Neural Engine..."
+                    case .loaded:
+                        phase = "Model ready!"
+                    case .prewarmed:
+                        phase = "Neural Engine warmed up"
+                    default:
+                        phase = "Preparing model..."
+                    }
+                    self?.reportStatus(phase)
+                    print("[TranscriptionEngine] Model state: \(oldState) → \(newState)")
+                }
+                
+                // Step 3: Load models into memory
+                reportStatus("Compiling for Neural Engine...")
+                try await kit.loadModels()
+                
+                whisperKit = kit
                 isInitialized = true
-                print("[TranscriptionEngine] ✅ Model loaded: \(model)")
+                
+                let duration = CFAbsoluteTimeGetCurrent() - startTime
+                print("[TranscriptionEngine] ✅ Model '\(model)' loaded in \(String(format: "%.1f", duration))s")
+                reportStatus("Ready!")
                 break
+                
             } catch {
                 print("[TranscriptionEngine] ❌ Model '\(model)' failed: \(error.localizedDescription)")
                 lastError = error
@@ -94,20 +141,9 @@ final class TranscriptionEngine {
         guard isInitialized else {
             throw lastError ?? TranscriptionError.transcriptionFailed("No compatible model found")
         }
-        
-        #if DEBUG
-        let duration = CFAbsoluteTimeGetCurrent() - startTime
-        print("[TranscriptionEngine] Model loaded in \(String(format: "%.2f", duration))s")
-        #endif
-        
-        // Warmup: run a dummy transcription to prime Metal/ANE pipelines
-        try await warmup()
     }
     
     /// Transcribe a float audio buffer (16kHz mono) to text.
-    ///
-    /// - Parameter audioArray: Raw audio samples at 16kHz, mono, Float32.
-    /// - Returns: The transcribed text string.
     func transcribe(_ audioArray: [Float]) async throws -> String {
         guard let kit = whisperKit else {
             throw TranscriptionError.notInitialized
@@ -119,7 +155,6 @@ final class TranscriptionEngine {
         
         let results = try await kit.transcribe(audioArray: audioArray)
         
-        // Combine all segment texts
         let text = results
             .compactMap { $0.text }
             .joined(separator: " ")
@@ -128,25 +163,19 @@ final class TranscriptionEngine {
         return text
     }
     
-    /// Unload the model to free memory after extended inactivity.
+    /// Unload the model to free memory.
     func unloadModel() {
         whisperKit = nil
         isInitialized = false
-        
-        #if DEBUG
         print("[TranscriptionEngine] Model unloaded.")
-        #endif
     }
     
     // MARK: - Private
     
-    /// Prime the model with a silent audio buffer to eliminate first-transcription cold start.
-    private func warmup() async throws {
-        let silentAudio = [Float](repeating: 0.0, count: 16_000) // 1 second of silence
-        _ = try? await transcribe(silentAudio)
-        
-        #if DEBUG
-        print("[TranscriptionEngine] Warmup complete.")
-        #endif
+    /// Send a status update to the UI via the callback.
+    private func reportStatus(_ message: String) {
+        DispatchQueue.main.async { [weak self] in
+            self?.onStatusUpdate?(message)
+        }
     }
 }

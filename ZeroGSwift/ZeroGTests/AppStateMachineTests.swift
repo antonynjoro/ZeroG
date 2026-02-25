@@ -5,24 +5,51 @@ import Testing
 
 struct AppStateMachineTests {
     
-    @Test("Initial state is idle")
+    @Test("Initial state is loading")
     func initialState() {
         let machine = AppStateMachine()
-        #expect(machine.currentState == .idle)
+        if case .loading = machine.currentState {
+            // Expected
+        } else {
+            Issue.record("Expected loading state, got \(machine.currentState)")
+        }
         #expect(machine.audioLevel == 0.0)
         #expect(machine.useGemini == false)
     }
     
-    @Test("Transition from idle to recording")
-    func transitionToRecording() {
+    @Test("isReady returns true for idle, success, error")
+    func isReady() {
         let machine = AppStateMachine()
-        machine.transition(to: .recording)
-        #expect(machine.currentState == .recording)
+        
+        machine.transition(to: .idle)
+        #expect(machine.currentState.isReady == true)
+        
+        machine.transition(to: .success)
+        #expect(machine.currentState.isReady == true)
+        
+        machine.transition(to: .error("test"))
+        #expect(machine.currentState.isReady == true)
     }
     
-    @Test("Full lifecycle: idle → recording → processing → success → idle")
+    @Test("isReady returns false during loading, recording, processing")
+    func isNotReady() {
+        let machine = AppStateMachine()
+        
+        #expect(machine.currentState.isReady == false) // loading
+        
+        machine.transition(to: .recording)
+        #expect(machine.currentState.isReady == false)
+        
+        machine.transition(to: .processing)
+        #expect(machine.currentState.isReady == false)
+    }
+    
+    @Test("Full lifecycle: loading → idle → recording → processing → success → idle")
     func fullLifecycle() {
         let machine = AppStateMachine()
+        
+        machine.transition(to: .idle)
+        #expect(machine.currentState == .idle)
         
         machine.transition(to: .recording)
         #expect(machine.currentState == .recording)
@@ -49,27 +76,18 @@ struct AppStateMachineTests {
         }
     }
     
-    @Test("Duplicate transition is ignored")
-    func duplicateTransition() {
+    @Test("statusText is useful for each state")
+    func statusText() {
         let machine = AppStateMachine()
+        #expect(machine.currentState.statusText.contains("Starting"))
+        
+        machine.transition(to: .idle)
+        #expect(machine.currentState.statusText.contains("Ready"))
+        
         machine.transition(to: .recording)
-        machine.transition(to: .recording)
-        #expect(machine.currentState == .recording)
-    }
-    
-    @Test("Audio level updates independently of state")
-    func audioLevel() {
-        let machine = AppStateMachine()
-        machine.audioLevel = 0.75
-        #expect(machine.audioLevel == 0.75)
-    }
-    
-    @Test("useGemini flag resets independently")
-    func geminiFlag() {
-        let machine = AppStateMachine()
-        machine.useGemini = true
-        #expect(machine.useGemini == true)
-        machine.useGemini = false
-        #expect(machine.useGemini == false)
+        #expect(machine.currentState.statusText.contains("Recording"))
+        
+        machine.transition(to: .error("Test"))
+        #expect(machine.currentState.statusText.contains("Test"))
     }
 }

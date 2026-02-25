@@ -1,0 +1,73 @@
+{
+  "": {
+    "dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/ZeroG.d",
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/ZeroG.o",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/master.swiftdeps"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/ZeroG/Config.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/Config.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/Config~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/Config.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/Config.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/ZeroG/Core/AppStateMachine.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/AppStateMachine.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/AppStateMachine~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/AppStateMachine.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/AppStateMachine.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/ZeroG/Core/AudioRecorder.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/AudioRecorder.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/AudioRecorder~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/AudioRecorder.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/AudioRecorder.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/ZeroG/Core/GeminiService.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/GeminiService.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/GeminiService~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/GeminiService.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/GeminiService.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/ZeroG/Core/KeyMonitor.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/KeyMonitor.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/KeyMonitor~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/KeyMonitor.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/KeyMonitor.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/ZeroG/Core/TextInjector.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/TextInjector.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/TextInjector~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/TextInjector.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/TextInjector.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/ZeroG/Core/TranscriptionEngine.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/TranscriptionEngine.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/TranscriptionEngine~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/TranscriptionEngine.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/TranscriptionEngine.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/ZeroG/GUI/HUDPanel.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/HUDPanel.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/HUDPanel~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/HUDPanel.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/HUDPanel.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/ZeroG/GUI/StatusBarController.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/StatusBarController.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/StatusBarController~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/StatusBarController.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/StatusBarController.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/ZeroG/ZeroGApp.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/ZeroGApp.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/ZeroGApp~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/ZeroGApp.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/ZeroGApp.dia"
+  },
+  "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/DerivedSources/resource_bundle_accessor.swift": {
+    "object": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/resource_bundle_accessor.swift.o",
+    "swiftmodule": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/resource_bundle_accessor~partial.swiftmodule",
+    "swift-dependencies": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/resource_bundle_accessor.swiftdeps",
+    "diagnostics": "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/release/ZeroG.build/resource_bundle_accessor.dia"
+  }
+}

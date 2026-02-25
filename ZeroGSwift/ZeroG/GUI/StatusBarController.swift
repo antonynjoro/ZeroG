@@ -3,13 +3,13 @@ import Combine
 
 // MARK: - Status Bar Controller
 
-/// Manages the macOS status bar (menu bar) icon and dropdown menu.
-/// Replaces Python's `menu.py` with native AppKit, including proper SF Symbol tinting.
+/// Manages the macOS status bar (menu bar) icon, dropdown menu, and status text.
 final class StatusBarController {
     
     // MARK: Properties
     
     private var statusItem: NSStatusItem!
+    private var statusMenuItem: NSMenuItem!
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: Dependencies
@@ -33,6 +33,13 @@ final class StatusBarController {
         // Build the dropdown menu
         let menu = NSMenu()
         
+        // Status text (non-clickable, shows current state)
+        statusMenuItem = NSMenuItem(title: "Starting up...", action: nil, keyEquivalent: "")
+        statusMenuItem.isEnabled = false
+        menu.addItem(statusMenuItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
         let quitItem = NSMenuItem(
             title: "Quit ZeroG",
             action: #selector(NSApplication.terminate(_:)),
@@ -43,7 +50,7 @@ final class StatusBarController {
         statusItem.menu = menu
         
         // Set initial icon
-        updateIcon(for: .idle)
+        updateUI(for: .loading("Starting up..."))
     }
     
     // MARK: - State Observation
@@ -52,20 +59,26 @@ final class StatusBarController {
         stateMachine.$currentState
             .receive(on: DispatchQueue.main)
             .sink { [weak self] state in
-                self?.updateIcon(for: state)
+                self?.updateUI(for: state)
             }
             .store(in: &cancellables)
     }
     
-    // MARK: - Icon Updates
+    // MARK: - UI Updates
     
-    private func updateIcon(for state: AppState) {
+    private func updateUI(for state: AppState) {
         guard let button = statusItem.button else { return }
+        
+        // Update status text in the menu
+        statusMenuItem.title = state.statusText
         
         let symbolName: String
         let tintColor: NSColor
         
         switch state {
+        case .loading:
+            symbolName = "arrow.down.circle"
+            tintColor = .systemOrange
         case .idle:
             symbolName = "mic"
             tintColor = .labelColor
@@ -84,12 +97,10 @@ final class StatusBarController {
         }
         
         if let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "ZeroG Status") {
-            // Create a tinted version of the SF Symbol
             let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
             let configuredImage = image.withSymbolConfiguration(config) ?? image
             
             if tintColor != .labelColor {
-                // Apply tint color — use non-template mode for colored icons
                 configuredImage.isTemplate = false
                 button.contentTintColor = tintColor
             } else {

@@ -123,7 +123,7 @@ struct HUDContentView: View {
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(HUDColors.alertRose)
                 
-            case .idle:
+            case .idle, .loading:
                 EmptyView()
             }
         }
@@ -172,7 +172,7 @@ struct HUDContentView: View {
                     .foregroundColor(.white.opacity(0.9))
                     .lineLimit(1)
                 
-            case .idle:
+            case .idle, .loading:
                 EmptyView()
             }
         }
@@ -186,7 +186,7 @@ struct HUDContentView: View {
         case .processing: return HUDColors.warningGold.opacity(0.3)
         case .success: return HUDColors.linkGreen.opacity(0.3)
         case .error: return HUDColors.alertRose.opacity(0.3)
-        case .idle: return HUDColors.vacuumGrey
+        case .idle, .loading: return HUDColors.vacuumGrey
         }
     }
     
@@ -196,7 +196,7 @@ struct HUDContentView: View {
         case .processing: return HUDColors.warningGold
         case .success: return HUDColors.linkGreen
         case .error: return HUDColors.alertRose
-        case .idle: return .clear
+        case .idle, .loading: return .clear
         }
     }
 }
@@ -278,9 +278,10 @@ final class HUDPanelController {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] state in
                 guard let self else { return }
-                if state == .idle {
+                switch state {
+                case .idle, .loading:
                     self.slideOut()
-                } else {
+                default:
                     self.slideIn()
                 }
             }
