@@ -69,11 +69,18 @@ final class KeyMonitor {
         guard let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
-            options: .defaultTap,
+            options: .listenOnly,
             eventsOfInterest: eventMask,
             callback: { (proxy, type, event, userInfo) -> Unmanaged<CGEvent>? in
-                // Handle tap being disabled by the system
                 if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                    // Re-enable the tap if the system disabled it
+                    if let userInfo = userInfo {
+                        let monitor = Unmanaged<KeyMonitor>.fromOpaque(userInfo).takeUnretainedValue()
+                        if let tap = monitor.eventTap {
+                            CGEvent.tapEnable(tap: tap, enable: true)
+                            print("[KeyMonitor] Event tap re-enabled after system timeout")
+                        }
+                    }
                     return Unmanaged.passRetained(event)
                 }
                 
@@ -161,17 +168,15 @@ final class KeyMonitor {
         }
         
         // Handle keyDown events (detect Q while Control is held)
-        if type == .keyDown && isControlPressed {
+        if type == .keyDown {
             let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-            if keyCode == Int64(KeyCode.q) && !isQPressedDuringSession {
+            
+            if isControlPressed && keyCode == Int64(KeyCode.q) && !isQPressedDuringSession {
                 isQPressedDuringSession = true
                 DispatchQueue.main.async { [weak self] in
                     self?.stateMachine.useGemini = true
                 }
-                
-                #if DEBUG
-                print("[KeyMonitor] Q pressed during session — Gemini mode activated.")
-                #endif
+                print("[KeyMonitor] ✅ Q pressed during Control session — Gemini mode activated")
             }
         }
     }
