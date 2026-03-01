@@ -57,29 +57,30 @@ class TestAudioRecorder(unittest.TestCase):
             self.recorder.stop_recording(use_gemini=False)
             
             self.assertFalse(self.recorder.recording)
-            self.assertIsNone(self.recorder.stream)
+            self.assertIsNotNone(self.recorder.stream)  # Persistent stream remains active
             
-            # Should spawn 2 threads: one for cleanup, one for transcription
+            # Should spawn 2 threads: one for pause, one for transcription
             self.assertEqual(mock_thread.call_count, 2)
             
-            # Find the cleanup thread (the one with the stream arg)
+            # Find the pause thread (the one with the stream arg)
             call_args_list = mock_thread.call_args_list
-            cleanup_call = None
+            pause_call = None
             for call in call_args_list:
                 args, kwargs = call
                 if 'args' in kwargs and len(kwargs['args']) > 0 and kwargs['args'][0] == mock_stream:
-                    cleanup_call = call
+                    pause_call = call
                     break
             
-            self.assertIsNotNone(cleanup_call, "Cleanup thread not spawned")
+            self.assertIsNotNone(pause_call, "Pause thread not spawned")
             
-            # Manually run the cleanup target to verify it closes the stream
-            cleanup_target = cleanup_call[1]['target']
-            cleanup_args = cleanup_call[1]['args']
-            cleanup_target(*cleanup_args)
+            # Manually run the pause target to verify it stops the stream
+            pause_target = pause_call[1]['target']
+            pause_args = pause_call[1]['args']
+            pause_target(*pause_args)
             
-            mock_stream.abort.assert_called_once()
-            mock_stream.close.assert_called_once()
+            mock_stream.stop.assert_called_once()
+            mock_stream.abort.assert_not_called()
+            mock_stream.close.assert_not_called()
 
     @patch('zerog.core.recorder.state_machine')
     @patch('zerog.core.recorder.pyperclip.copy')

@@ -2,138 +2,127 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## After Making Changes
+
+After any code change to the Swift app, always run the build script and remind the user to restart the app:
+
+```bash
+cd ZeroGSwift && ./build_app.sh
+```
+
+Then tell the user: **"Build complete — please quit and relaunch ZeroG.app to test your changes."**
+
+---
+
 ## Project Overview
 
-ZeroG is a privacy-focused voice typing application for macOS that leverages local Apple Silicon MLX models for real-time speech transcription. The application uses a space/aerospace theme and terminology throughout its codebase and documentation.
+ZeroG is a privacy-focused voice typing macOS app. Hold Left Control to record; release to transcribe and paste into any app. Hold Control+Q to additionally polish the text via Gemini.
 
-## Development Commands
+The project has **two parallel implementations**:
+- **`ZeroGSwift/`** — Native Swift app (active development, current branch: `swift-native`). Uses WhisperKit + AVFoundation + SwiftUI.
+- **`zerog/`** — Original Python app (legacy). Uses MLX Whisper + sounddevice + pyobjc.
 
-### Setup and Installation
+## Swift App (`ZeroGSwift/`)
+
+### Commands
+
 ```bash
-# Install dependencies and set up virtual environment
-./setup.sh
+# Build and run (development)
+cd ZeroGSwift
+swift run
 
-# Activate virtual environment manually if needed
+# Build release binary
+swift build -c release
+
+# Package as .app bundle (output: ZeroGSwift/build/ZeroG.app)
+cd ZeroGSwift && ./build_app.sh
+
+# Run tests
+swift test
+
+# Run a single test
+swift test --filter ZeroGTests.TestClassName/testMethodName
+```
+
+### Architecture
+
+**Entry point**: `ZeroG/ZeroGApp.swift` — `@main ZeroGApp` struct with `AppDelegate` that wires all components together on `applicationDidFinishLaunching`.
+
+**State machine**: `ZeroG/Core/AppStateMachine.swift` — `AppStateMachine: ObservableObject` publishes `currentState: AppState` via Combine. States: `loading(String) → idle → recording → processing → success/error(String)`. All UI components subscribe to this via `$currentState`. Also publishes `audioLevel: Float` (0–1) for HUD visualization and `useGemini: Bool` for session context.
+
+**Data flow**:
+```
+KeyMonitor (CGEvent tap)
+  → onStartRecording / onStopRecording(useGemini) callbacks
+  → AudioRecorder
+      → AVAudioEngine tap → processAudioBuffer (silence detection + level metering)
+      → stopRecording → transcribeAndInject (background Task)
+          → TranscriptionEngine.transcribe([Float]) → WhisperKit
+          → GeminiService.process(text) (optional)
+          → TextInjector.injectText (clipboard snapshot → Cmd+V → restore)
+  → AppStateMachine (state transitions + audioLevel updates)
+  → StatusBarController + HUDPanelController (observe via Combine)
+```
+
+**Key implementation notes**:
+- `KeyMonitor` uses `CGEvent.tapCreate(.listenOnly)` — interrupt-driven, <0.1% idle CPU. The event tap monitors `flagsChanged` (Left Control keycode 59) and `keyDown` (Q keycode 12 for Gemini mode).
+- `AudioRecorder` captures at native sample rate (usually 44.1/48kHz), downsamples to 16kHz via stride for WhisperKit. Silence detection uses 5s RMS threshold (0.015).
+- `TextInjector` snapshots the full pasteboard before injection and restores it 600ms after pasting.
+- `Config` reads from `.env` file adjacent to the `.app` bundle, then falls back to `UserDefaults`, then hardcoded defaults. Gemini API key is stored in `UserDefaults` (set via menu bar dialog).
+- `TranscriptionEngine` downloads the WhisperKit model (`large-v3-v20240930_turbo`) on first launch via `WhisperKit.download()`, then loads it with Neural Engine compute units.
+
+**GUI**: Both `StatusBarController` and `HUDPanelController` are Cocoa-native (not SwiftUI views), subscribing to `AppStateMachine` via Combine `sink`.
+
+### macOS Permissions Required
+- Input Monitoring (for CGEvent tap)
+- Accessibility (for Cmd+V simulation)
+- Microphone (for AVAudioEngine)
+
+Grant in System Settings → Privacy & Security. If the event tap fails to install, the app logs a detailed instructions message.
+
+### Dependencies (`ZeroGSwift/Package.swift`)
+- `WhisperKit` (≥0.9.0) — on-device speech recognition via Apple Neural Engine
+- `GoogleGenerativeAI` (≥0.5.0) — optional Gemini API integration
+- macOS 14+ required
+
+---
+
+## Python App (`zerog/`)
+
+### Commands
+
+```bash
+# Setup
+./setup.sh
 source .venv/bin/activate
 
-# Install requirements manually
-pip install -r requirements.txt
-```
-
-### Running the Application
-```bash
-# Main entry point - starts the complete application
+# Run
 python main.py
 
-# Alternative using shell script
-./run_zerog.sh
-```
-
-### Testing
-```bash
-# Run all tests
+# Test
 python -m pytest tests/
+python -m pytest tests/test_main.py  # single file
+python -m pytest tests/test_state.py::TestClassName::test_method  # single test
 
-# Run specific test files
-python -m pytest tests/test_main.py
-python -m pytest tests/test_state.py
-python -m pytest tests/test_gui_integration.py
-
-# Manual testing scripts
-python tests/manual_test_sound.py
-python tests/verify_injection.py
-```
-
-### Building
-```bash
-# Build macOS app bundle using py2app
+# Build .app bundle
 python setup.py py2app
 ```
 
-## Architecture Overview
+### Architecture
 
-### Core Application Structure
+- `main.py` → `zerog/app.py:ZeroGApp` (Cocoa lifecycle)
+- `zerog/core/state.py` — Singleton `StateMachine` with Observer pattern; states: `IDLE → RECORDING → PROCESSING → SUCCESS/ERROR`
+- `zerog/core/recorder.py` — `AudioRecorder` with MLX Whisper + sounddevice, parallel chunk transcription
+- `zerog/core/input.py` — `KeyMonitor` polling `CGEventSourceKeyState` every 50ms
+- `zerog/core/gemini.py` — Gemini integration using prompt from `gemini_prompt.txt`
+- `zerog/core/typer.py` + `clipboard.py` — Text injection with clipboard fallback
+- `zerog/gui/menu.py` — Status bar menu controller
+- `zerog/gui/hud.py` — Floating HUD with audio level visualization
 
-**Main Entry Point**: `main.py`
-- Sets up logging based on DEBUG environment variable
-- Loads environment variables from `.env`
-- Initializes and runs the main application
+**Config**: `.env` file with `DEBUG=True/False` and `GOOGLE_API_KEY`. Debug log written to `mac_dictate.log`.
 
-**Application Controller**: `zerog/app.py` 
-- `ZeroGApp` class manages the Cocoa application lifecycle
-- Coordinates between core recording logic and GUI components
-- Initializes AudioRecorder, KeyMonitor, StatusMenuController, and HUDController
+---
 
-### Core Modules (`zerog/core/`)
+## Shared Assets
 
-**State Management**: `state.py`
-- Singleton `StateMachine` class using Observer pattern
-- Thread-safe state transitions: IDLE → RECORDING → PROCESSING → SUCCESS/ERROR
-- Separate audio level broadcasting system for real-time feedback
-- Global `state_machine` instance used throughout the application
-
-**Audio Recording**: `recorder.py`
-- `AudioRecorder` class handles MLX Whisper model integration
-- Real-time audio capture with silence detection
-- Automatic transcription with configurable silence thresholds
-
-**Input Handling**: `input.py`
-- `KeyMonitor` class for global hotkey detection (Left Control key)
-- Supports both hold-to-record and press-to-start modes
-- Handles Control+Q combination for Gemini-enhanced processing
-
-**Text Processing**: `gemini.py`
-- Optional Gemini API integration for grammar correction and formatting
-- Uses prompt template from `gemini_prompt.txt`
-- Requires `GOOGLE_API_KEY` environment variable
-
-**Text Injection**: `typer.py` and `clipboard.py`
-- Multiple text injection strategies for compatibility
-- `FastTyper` handles direct text injection
-- Clipboard-based fallback for better app compatibility
-
-### GUI Components (`zerog/gui/`)
-
-**Status Menu**: `menu.py`
-- `StatusMenuController` manages the macOS status bar icon
-- Provides access to application controls and settings
-
-**HUD Interface**: `hud.py`
-- `HUDController` creates floating heads-up display
-- Real-time visual feedback during recording
-- Audio level visualization and state indicators
-
-### Configuration
-
-**Environment Variables** (`.env` file):
-- `DEBUG=True/False` - Enables detailed logging to `mac_dictate.log`
-- `GOOGLE_API_KEY=your_key` - Required for Gemini API features
-
-**Logging**:
-- Debug logging writes to `mac_dictate.log` in project root
-- Only enabled when `DEBUG=True` in environment
-
-### Key Design Patterns
-
-1. **Observer Pattern**: StateMachine broadcasts state changes to registered observers
-2. **Singleton Pattern**: StateMachine ensures single source of truth for application state
-3. **Strategy Pattern**: Multiple text injection methods with fallback hierarchy
-4. **Event-Driven Architecture**: Key events trigger state transitions and UI updates
-
-### Dependencies
-
-Core dependencies include:
-- `mlx-whisper` - Local speech recognition using Apple Silicon
-- `sounddevice` - Audio input capture
-- `pyobjc-framework-*` - macOS Cocoa/Quartz integration
-- `google-genai` - Optional Gemini API integration
-- `python-dotenv` - Environment variable management
-
-### Testing Strategy
-
-Tests are organized by component:
-- `test_main.py` - Integration tests for main application flow
-- `test_state.py` - State machine behavior and thread safety
-- `test_gui_integration.py` - GUI component integration
-- `test_core_injection.py` - Text injection mechanisms
-- Manual test files for audio and injection verification
+- `ZeroG/Resources/gemini_prompt.txt` — System prompt loaded by both implementations for Gemini polishing

@@ -38,7 +38,7 @@ enum Config {
     // MARK: Whisper Model
     
     /// The WhisperKit model variant to use.
-    static let whisperModel: String = "large-v3-turbo"
+    static let whisperModel: String = "large-v3-v20240930_turbo"
     
     // MARK: Load
     

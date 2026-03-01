@@ -38,8 +38,6 @@ class AudioRecorder:
         self.reset_timer = None
         self._model_dir = None  # Cached resolved model path
         self._preloaded_sound = None  # Pre-loaded sound effect
-        self._preloaded_sound = None  # Pre-loaded sound effect
-        self._preloaded_sound = None  # Pre-loaded sound effect
         self._processing_start_time = None  # For latency tracking
         
         # Parallel transcription state
@@ -47,7 +45,6 @@ class AudioRecorder:
         self.last_context = "The user is dictating. Valid English text."
         self.bg_transcriber_thread = None
         self.stop_transcribing_event = threading.Event()
-        self._stream_cleanup_thread = None  # Track stream teardown to prevent PortAudio deadlocks
         
         # Silence detection
         self._silence_start_time = None
@@ -57,17 +54,14 @@ class AudioRecorder:
         threading.Thread(target=self._initialize_all, daemon=True).start()
 
     def _warmup_audio_subsystem(self):
-        """Pre-initialize audio input to eliminate cold-start delay."""
+        """Initialize the persistent audio stream to eliminate cold-start delay and PortAudio deadlocks."""
         try:
-            # Create a short-lived stream to warm up sounddevice/CoreAudio
-            warmup_stream = sd.InputStream(samplerate=SAMPLE_RATE, channels=1)
-            warmup_stream.start()
-            time.sleep(0.1)  # Brief activation to fully initialize
-            warmup_stream.stop()
-            warmup_stream.close()
-            logger.info("Audio subsystem warmup complete.")
+            logger.info("Initializing persistent audio stream (paused)...")
+            self.stream = sd.InputStream(samplerate=SAMPLE_RATE, channels=1, callback=self.callback)
+            # We do NOT call self.stream.start() here so it does not capture the OS microphone lock
+            logger.info("Persistent audio stream initialized successfully.")
         except Exception as e:
-            logger.warning(f"Audio warmup failed: {e}")
+            logger.error(f"Failed to start persistent audio stream: {e}", exc_info=True)
         
         # Pre-load the sound effect (must run on main thread for Cocoa)
         try:
@@ -187,11 +181,15 @@ class AudioRecorder:
             
             # Ensure any previous transcriber thread has completely finished
             if self.bg_transcriber_thread and self.bg_transcriber_thread.is_alive():
-                logger.info("Waiting for previous transcriber thread to finish before starting new recording...")
+                logger.info("[TELEMETRY] Waiting for previous bg_transcriber_thread to finish...")
                 self.stop_transcribing_event.set()
                 # Do not block the lock while waiting, as the thread needs it
                 self._lock.release()
-                self.bg_transcriber_thread.join(timeout=2.0)
+                self.bg_transcriber_thread.join(timeout=5.0)
+                if self.bg_transcriber_thread.is_alive():
+                    logger.error("[TELEMETRY] bg_transcriber_thread FAILED TO JOIN within 5.0s!")
+                else:
+                    logger.info("[TELEMETRY] bg_transcriber_thread joined successfully.")
                 self._lock.acquire()
                 
             # Reset parallel transcription state
@@ -207,58 +205,54 @@ class AudioRecorder:
             self.play_sound()
             logger.info("Sound played.")
             
-        # Wait for any previous stream cleanup OUTSIDE the lock — PortAudio on macOS
-        # cannot open a new stream while the old one is still being torn down.
-        if self._stream_cleanup_thread and self._stream_cleanup_thread.is_alive():
-            logger.info("Waiting for previous stream cleanup to finish...")
-            self._stream_cleanup_thread.join(timeout=3.0)
-            if self._stream_cleanup_thread.is_alive():
-                logger.warning("Stream cleanup thread did not finish in time!")
-            else:
-                logger.info("Previous stream cleanup finished.")
-        
-        try:
-            logger.info("Calling sd.InputStream...")
-            new_stream = sd.InputStream(samplerate=SAMPLE_RATE, channels=1, callback=self.callback)
-            logger.info("Initializing audio stream...")
-            new_stream.start()
-            with self._lock:
-                self.stream = new_stream
-            logger.info("Audio stream started successfully.")
-        except Exception as e:
-            logger.error(f"Failed to start stream: {e}", exc_info=True)
-            with self._lock:
+            # Ensure persistent stream is healthy
+            if not self.stream:
+                logger.warning("Persistent audio stream is missing! Attempting to recreate...")
+                try:
+                    self.stream = sd.InputStream(samplerate=SAMPLE_RATE, channels=1, callback=self.callback)
+                    logger.info("Audio stream recreated successfully.")
+                except Exception as e:
+                    logger.error(f"Failed to recreate stream: {e}", exc_info=True)
+                    self.recording = False
+                    self._handle_error("Mic Error")
+
+            # Start the stream if it's currently paused
+            try:
+                if self.stream and self.stream.stopped:
+                    logger.info("Starting paused persistent stream...")
+                    self.stream.start()
+                    logger.info("Persistent stream running.")
+            except Exception as e:
+                logger.error(f"Failed to start paused stream: {e}", exc_info=True)
                 self.recording = False
-            self._handle_error("Mic Error")
+                self._handle_error("Mic Error")
 
     def stop_recording(self, use_gemini):
         with self._lock:
             if not self.recording: 
                 return
             self.recording = False
-            active_stream = self.stream
-            self.stream = None
+
+        # Define pause function for background thread
+        def _pause_stream(stream_to_pause):
+            logger.info("Pausing persistent audio stream...")
+            if stream_to_pause:
+                try:
+                    # Gracefully stop the C-level callback to release the macOS mic indicator
+                    stream_to_pause.stop()
+                    logger.info("Persistent audio stream paused successfully.")
+                except Exception as e:
+                    logger.error(f"Failed to pause stream: {e}", exc_info=True)
+
+        # Pause stream in background to prevent blocking
+        if self.stream:
+            threading.Thread(target=_pause_stream, args=(self.stream,), daemon=True).start()
 
         # Signal background thread to process remaining chunks and stop
         self.stop_transcribing_event.set()
 
         self._processing_start_time = time.time()  # Track when user released control
         logger.info(f"Stopping Recording. Gemini={use_gemini}")
-        
-        # Define cleanup function for background thread
-        def _cleanup_stream(stream_to_close):
-            if stream_to_close:
-                try:
-                    # Use abort() instead of stop() to prevent PortAudio deadlocks waiting for callbacks
-                    stream_to_close.abort()
-                    stream_to_close.close()
-                    logger.info("Audio stream aborted and closed in background.")
-                except Exception as e:
-                    logger.error(f"Error closing stream: {e}")
-
-        # Start cleanup in daemon thread and track it
-        self._stream_cleanup_thread = threading.Thread(target=_cleanup_stream, args=(active_stream,), daemon=True)
-        self._stream_cleanup_thread.start()
         
         threading.Thread(
             target=self.transcribe_and_type, 
@@ -269,6 +263,29 @@ class AudioRecorder:
     def _background_transcriber(self):
         import re
         logger.info("Background transcriber started.")
+
+        # --- Async Warmup ---
+        # Run a quick dummy transcription to page in the MLX model buffers while the user
+        # is actively speaking. This masks the 3-10s Metal cold start penalty for any new 
+        # recording session.
+        logger.info("Executing async model warmup...")
+        try:
+            with self._lock:
+                model_path = self._model_dir if self._model_dir else MODEL_PATH
+                initial_prompt_copy = self.last_context
+            
+            warmup_audio = np.zeros(SAMPLE_RATE, dtype=np.float32)
+            mlx_whisper.transcribe(
+                warmup_audio,
+                path_or_hf_repo=model_path,
+                language="en",
+                initial_prompt=initial_prompt_copy
+            )
+            logger.info("Async model warmup complete.")
+        except Exception as e:
+            logger.warning(f"Async warmup failed: {e}")
+        # --------------------
+
         accumulated_audio = []
         accumulated_samples = 0
         min_samples = int(CHUNK_MIN_DURATION * SAMPLE_RATE)
@@ -306,14 +323,19 @@ class AudioRecorder:
                     audio_np = np.concatenate([audio_np, silence])
                 
                 start_t = time.time()
+                
                 with self._lock:
                     model_path = self._model_dir if self._model_dir else MODEL_PATH
-                    result = mlx_whisper.transcribe(
-                        audio_np, 
-                        path_or_hf_repo=model_path,
-                        language="en",
-                        initial_prompt=self.last_context
-                    )
+                    initial_prompt_copy = self.last_context
+                
+                # IMPORTANT: Do not hold the lock during transcription! It blocks stop_recording
+                # and freezes the UI when the user attempts to stop.
+                result = mlx_whisper.transcribe(
+                    audio_np, 
+                    path_or_hf_repo=model_path,
+                    language="en",
+                    initial_prompt=initial_prompt_copy
+                )
                 
                 duration = time.time() - start_t
                 text = result["text"].strip()

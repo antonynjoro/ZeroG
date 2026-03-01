@@ -37,109 +37,85 @@ final class TranscriptionEngine {
     /// Callback for status updates during initialization (download progress, model loading phases).
     var onStatusUpdate: ((String) -> Void)?
     
-    // MARK: Model Fallback
-    
-    private static let modelFallbackChain = [
-        "small.en",                   // Good accuracy, fast compile on M1
-        "base.en",                    // Fastest fallback
-        "large-v3-v20240930_turbo",   // Best accuracy (slow first compile)
-    ]
-    
     // MARK: Initialization
     
     init(modelName: String? = nil) {
-        self.modelName = modelName ?? Self.modelFallbackChain[0]
+        self.modelName = modelName ?? Config.whisperModel
     }
     
     /// Load the WhisperKit model with progress reporting.
     func initialize() async throws {
         guard !isInitialized else { return }
         
-        let modelsToTry: [String]
-        if Self.modelFallbackChain.contains(modelName) {
-            let idx = Self.modelFallbackChain.firstIndex(of: modelName) ?? 0
-            modelsToTry = Array(Self.modelFallbackChain[idx...])
-        } else {
-            modelsToTry = [modelName] + Self.modelFallbackChain
-        }
-        
         let startTime = CFAbsoluteTimeGetCurrent()
-        print("[TranscriptionEngine] Attempting model load. Chain: \(modelsToTry)")
+        print("[TranscriptionEngine] Attempting model load: \(modelName)")
         
-        var lastError: Error?
-        for model in modelsToTry {
-            do {
-                print("[TranscriptionEngine] Trying model: \(model)...")
-                reportStatus("Downloading model: \(model)...")
-                
-                // Step 1: Download the model with progress reporting
-                let modelFolder = try await WhisperKit.download(
-                    variant: model,
-                    progressCallback: { [weak self] progress in
-                        let pct = Int(progress.fractionCompleted * 100)
-                        let message = "Downloading model: \(pct)%"
-                        self?.reportStatus(message)
-                        print("[TranscriptionEngine] \(message)")
-                    }
-                )
-                
-                reportStatus("Loading model into memory...")
-                print("[TranscriptionEngine] Download complete. Loading from: \(modelFolder.path)")
-                
-                // Step 2: Initialize WhisperKit with the downloaded model folder
-                let config = WhisperKitConfig(
-                    modelFolder: modelFolder.path,
-                    computeOptions: ModelComputeOptions(
-                        audioEncoderCompute: .cpuAndNeuralEngine,
-                        textDecoderCompute: .cpuAndNeuralEngine
-                    ),
-                    verbose: true,
-                    prewarm: false,
-                    load: false,
-                    download: false
-                )
-                
-                let kit = try await WhisperKit(config)
-                
-                // Set up model state callback for loading phases
-                kit.modelStateCallback = { [weak self] oldState, newState in
-                    let phase: String
-                    switch newState {
-                    case .loading:
-                        phase = "Loading neural network..."
-                    case .prewarming:
-                        phase = "Warming up Neural Engine..."
-                    case .loaded:
-                        phase = "Model ready!"
-                    case .prewarmed:
-                        phase = "Neural Engine warmed up"
-                    default:
-                        phase = "Preparing model..."
-                    }
-                    self?.reportStatus(phase)
-                    print("[TranscriptionEngine] Model state: \(oldState) → \(newState)")
+        do {
+            print("[TranscriptionEngine] Trying model: \(modelName)...")
+            reportStatus("Downloading model: \(modelName)...")
+            
+            // Step 1: Download the model with progress reporting
+            let modelFolder = try await WhisperKit.download(
+                variant: modelName,
+                progressCallback: { [weak self] progress in
+                    let pct = Int(progress.fractionCompleted * 100)
+                    let message = "Downloading model: \(pct)%"
+                    self?.reportStatus(message)
+                    print("[TranscriptionEngine] \(message)")
                 }
-                
-                // Step 3: Load models into memory
-                reportStatus("Compiling for Neural Engine...")
-                try await kit.loadModels()
-                
-                whisperKit = kit
-                isInitialized = true
-                
-                let duration = CFAbsoluteTimeGetCurrent() - startTime
-                print("[TranscriptionEngine] ✅ Model '\(model)' loaded in \(String(format: "%.1f", duration))s")
-                reportStatus("Ready!")
-                break
-                
-            } catch {
-                print("[TranscriptionEngine] ❌ Model '\(model)' failed: \(error.localizedDescription)")
-                lastError = error
+            )
+            
+            reportStatus("Loading model into memory...")
+            print("[TranscriptionEngine] Download complete. Loading from: \(modelFolder.path)")
+            
+            // Step 2: Initialize WhisperKit with the downloaded model folder
+            let config = WhisperKitConfig(
+                modelFolder: modelFolder.path,
+                computeOptions: ModelComputeOptions(
+                    audioEncoderCompute: .cpuAndNeuralEngine,
+                    textDecoderCompute: .cpuAndNeuralEngine
+                ),
+                verbose: true,
+                prewarm: false,
+                load: false,
+                download: false
+            )
+            
+            let kit = try await WhisperKit(config)
+            
+            // Set up model state callback for loading phases
+            kit.modelStateCallback = { [weak self] oldState, newState in
+                let phase: String
+                switch newState {
+                case .loading:
+                    phase = "Loading neural network..."
+                case .prewarming:
+                    phase = "Warming up Neural Engine..."
+                case .loaded:
+                    phase = "Model ready!"
+                case .prewarmed:
+                    phase = "Neural Engine warmed up"
+                default:
+                    phase = "Preparing model..."
+                }
+                self?.reportStatus(phase)
+                print("[TranscriptionEngine] Model state: \(oldState) → \(newState)")
             }
-        }
-        
-        guard isInitialized else {
-            throw lastError ?? TranscriptionError.transcriptionFailed("No compatible model found")
+            
+            // Step 3: Load models into memory
+            reportStatus("Compiling for Neural Engine...")
+            try await kit.loadModels()
+            
+            whisperKit = kit
+            isInitialized = true
+            
+            let duration = CFAbsoluteTimeGetCurrent() - startTime
+            print("[TranscriptionEngine] ✅ Model '\(modelName)' loaded in \(String(format: "%.1f", duration))s")
+            reportStatus("Ready!")
+            
+        } catch {
+            print("[TranscriptionEngine] ❌ Model '\(modelName)' failed: \(error.localizedDescription)")
+            throw TranscriptionError.transcriptionFailed(error.localizedDescription)
         }
     }
     
