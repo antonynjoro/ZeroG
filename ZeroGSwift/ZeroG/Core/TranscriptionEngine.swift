@@ -76,7 +76,7 @@ final class TranscriptionEngine {
                     textDecoderCompute: .cpuAndNeuralEngine
                 ),
                 verbose: true,
-                prewarm: false,
+                prewarm: true,
                 load: false,
                 download: false
             )
@@ -129,7 +129,13 @@ final class TranscriptionEngine {
             throw TranscriptionError.emptyAudio
         }
         
-        let results = try await kit.transcribe(audioArray: audioArray)
+        let options = DecodingOptions(
+            task: .transcribe,
+            temperatureFallbackCount: 1,
+            skipSpecialTokens: true,
+            withoutTimestamps: true
+        )
+        let results = try await kit.transcribe(audioArray: audioArray, decodeOptions: options)
         
         let text = results
             .compactMap { $0.text }
