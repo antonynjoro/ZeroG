@@ -30,10 +30,7 @@ enum TextInjector {
         // 2. Write our text to clipboard
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
-        
-        // Small delay to ensure clipboard propagation
-        usleep(50_000) // 50ms
-        
+
         // 3. Simulate Cmd+V
         simulatePaste()
         

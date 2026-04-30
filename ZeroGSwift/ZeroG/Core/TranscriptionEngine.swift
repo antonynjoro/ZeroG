@@ -33,6 +33,19 @@ final class TranscriptionEngine {
     
     /// Serial queue to protect WhisperKit access.
     private let transcriptionQueue = DispatchQueue(label: "com.zerog.transcription", qos: .userInitiated)
+
+    /// Decoding options tuned for low latency: English-only, no language detection probe,
+    /// no temperature fallback retries, VAD chunking to skip silent regions.
+    private static let fastDecodingOptions = DecodingOptions(
+        task: .transcribe,
+        language: "en",
+        temperature: 0.0,
+        temperatureFallbackCount: 0,
+        detectLanguage: false,
+        skipSpecialTokens: true,
+        withoutTimestamps: true,
+        chunkingStrategy: .vad
+    )
     
     /// Callback for status updates during initialization (download progress, model loading phases).
     var onStatusUpdate: ((String) -> Void)?
@@ -69,13 +82,19 @@ final class TranscriptionEngine {
             print("[TranscriptionEngine] Download complete. Loading from: \(modelFolder.path)")
             
             // Step 2: Initialize WhisperKit with the downloaded model folder
+            #if DEBUG
+            let verboseLogging = true
+            #else
+            let verboseLogging = false
+            #endif
+
             let config = WhisperKitConfig(
                 modelFolder: modelFolder.path,
                 computeOptions: ModelComputeOptions(
                     audioEncoderCompute: .cpuAndNeuralEngine,
                     textDecoderCompute: .cpuAndNeuralEngine
                 ),
-                verbose: true,
+                verbose: verboseLogging,
                 prewarm: true,
                 load: false,
                 download: false
@@ -105,7 +124,13 @@ final class TranscriptionEngine {
             // Step 3: Load models into memory
             reportStatus("Compiling for Neural Engine...")
             try await kit.loadModels()
-            
+
+            // Step 4: Force CoreML decoder specialization now so the user's first
+            // dictation doesn't pay the ~300–600 ms cold-start cost.
+            reportStatus("Priming decoder...")
+            let warmupAudio = [Float](repeating: 0.0, count: 16_000) // 1 s of silence at 16 kHz
+            _ = try? await kit.transcribe(audioArray: warmupAudio, decodeOptions: Self.fastDecodingOptions)
+
             whisperKit = kit
             isInitialized = true
             
@@ -129,13 +154,7 @@ final class TranscriptionEngine {
             throw TranscriptionError.emptyAudio
         }
         
-        let options = DecodingOptions(
-            task: .transcribe,
-            temperatureFallbackCount: 1,
-            skipSpecialTokens: true,
-            withoutTimestamps: true
-        )
-        let results = try await kit.transcribe(audioArray: audioArray, decodeOptions: options)
+        let results = try await kit.transcribe(audioArray: audioArray, decodeOptions: Self.fastDecodingOptions)
         
         let text = results
             .compactMap { $0.text }

@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import AppKit
 import Combine
+import Accelerate
 
 // MARK: - Constants
 
@@ -117,12 +118,42 @@ final class AudioRecorder {
         #endif
         
         // Grab the accumulated audio
-        let audioData: [Float] = sampleQueue.sync { accumulatedSamples }
-        
+        let rawAudio: [Float] = sampleQueue.sync { accumulatedSamples }
+        let audioData = Self.trimTrailingSilence(rawAudio)
+
         // Process transcription in the background
         Task.detached { [weak self] in
             await self?.transcribeAndInject(audioData: audioData, useGemini: useGemini)
         }
+    }
+
+    /// Drop trailing samples whose 20 ms-window RMS falls below the silence threshold,
+    /// keeping a small tail (200 ms) so the model gets a clean end-of-utterance.
+    private static func trimTrailingSilence(_ samples: [Float]) -> [Float] {
+        guard !samples.isEmpty else { return samples }
+
+        let sampleRate = Int(AudioConstants.sampleRate)
+        let windowSize = sampleRate / 50      // 20 ms windows = 320 samples @ 16 kHz
+        let tailKeep = sampleRate / 5         // keep up to 200 ms of trailing silence
+        guard samples.count > windowSize else { return samples }
+
+        var lastVoicedEnd = 0
+        var idx = 0
+        while idx + windowSize <= samples.count {
+            var sumSq: Float = 0
+            samples.withUnsafeBufferPointer { ptr in
+                vDSP_svesq(ptr.baseAddress! + idx, 1, &sumSq, vDSP_Length(windowSize))
+            }
+            let rms = sqrt(sumSq / Float(windowSize))
+            if rms >= AudioConstants.silenceThreshold {
+                lastVoicedEnd = idx + windowSize
+            }
+            idx += windowSize
+        }
+
+        if lastVoicedEnd == 0 { return samples }   // never detected speech — leave it alone
+        let endIdx = min(samples.count, lastVoicedEnd + tailKeep)
+        return Array(samples[0..<endIdx])
     }
     
     // MARK: - Audio Processing
@@ -135,25 +166,29 @@ final class AudioRecorder {
         // Convert to 16kHz mono if needed
         let samples: [Float]
         if format.sampleRate != AudioConstants.sampleRate {
-            // Simple downsampling by stride
+            // Box-filter downsample with vDSP_desamp (averages each window of `step` samples).
             let ratio = format.sampleRate / AudioConstants.sampleRate
-            let step = max(1, Int(ratio))
-            var downsampled: [Float] = []
-            downsampled.reserveCapacity(frameLength / step)
-            for i in stride(from: 0, to: frameLength, by: step) {
-                downsampled.append(channelData[i])
+            let step = max(1, Int(ratio.rounded()))
+            let outCount = frameLength / step
+            if outCount > 0 {
+                var filter = [Float](repeating: 1.0 / Float(step), count: step)
+                var output = [Float](repeating: 0, count: outCount)
+                vDSP_desamp(channelData, vDSP_Stride(step), &filter, &output, vDSP_Length(outCount), vDSP_Length(step))
+                samples = output
+            } else {
+                samples = []
             }
-            samples = downsampled
         } else {
             samples = Array(UnsafeBufferPointer(start: channelData, count: frameLength))
         }
-        
-        // Compute RMS for level metering
-        var sumOfSquares: Float = 0
-        for sample in samples {
-            sumOfSquares += sample * sample
+
+        // Compute RMS for level metering (vectorized).
+        var rms: Float = 0
+        if !samples.isEmpty {
+            samples.withUnsafeBufferPointer { ptr in
+                vDSP_rmsqv(ptr.baseAddress!, 1, &rms, vDSP_Length(samples.count))
+            }
         }
-        let rms = sqrt(sumOfSquares / Float(max(1, samples.count)))
         let normalizedLevel = min(1.0, rms * 10.0)
         
         // Publish audio level to HUD (dispatch to main thread)
@@ -228,6 +263,11 @@ final class AudioRecorder {
                 finalText = await GeminiService.shared?.process(text) ?? text
             }
             
+            // Store for "Copy Last Transcription" menu item
+            DispatchQueue.main.async { [weak self] in
+                self?.stateMachine.lastTranscription = finalText
+            }
+
             // Inject text
             TextInjector.injectText(finalText)
             
