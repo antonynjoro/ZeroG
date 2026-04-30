@@ -44,6 +44,9 @@ bin/
 obj/
 cmake-build-debug/
 cmake-build-release/
+ZeroGSwift/.build/
+ZeroGSwift/build/
+.build/
 *.exe
 *.dll
 *.so
@@ -74,7 +77,6 @@ htmlcov/
 # Personal
 journal/
 mlx-examples/
-
 
 
 

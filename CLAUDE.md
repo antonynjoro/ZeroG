@@ -18,9 +18,8 @@ Then tell the user: **"Build complete — please quit and relaunch ZeroG.app to 
 
 ZeroG is a privacy-focused voice typing macOS app. Hold Left Control to record; release to transcribe and paste into any app. Hold Control+Q to additionally polish the text via Gemini.
 
-The project has **two parallel implementations**:
-- **`ZeroGSwift/`** — Native Swift app (active development, current branch: `swift-native`). Uses WhisperKit + AVFoundation + SwiftUI.
-- **`zerog/`** — Original Python app (legacy). Uses MLX Whisper + sounddevice + pyobjc.
+The project has one active implementation:
+- **`ZeroGSwift/`** — Native Swift app. Uses WhisperKit + AVFoundation + SwiftUI.
 
 ## Swift App (`ZeroGSwift/`)
 
@@ -87,42 +86,6 @@ Grant in System Settings → Privacy & Security. If the event tap fails to insta
 
 ---
 
-## Python App (`zerog/`)
-
-### Commands
-
-```bash
-# Setup
-./setup.sh
-source .venv/bin/activate
-
-# Run
-python main.py
-
-# Test
-python -m pytest tests/
-python -m pytest tests/test_main.py  # single file
-python -m pytest tests/test_state.py::TestClassName::test_method  # single test
-
-# Build .app bundle
-python setup.py py2app
-```
-
-### Architecture
-
-- `main.py` → `zerog/app.py:ZeroGApp` (Cocoa lifecycle)
-- `zerog/core/state.py` — Singleton `StateMachine` with Observer pattern; states: `IDLE → RECORDING → PROCESSING → SUCCESS/ERROR`
-- `zerog/core/recorder.py` — `AudioRecorder` with MLX Whisper + sounddevice, parallel chunk transcription
-- `zerog/core/input.py` — `KeyMonitor` polling `CGEventSourceKeyState` every 50ms
-- `zerog/core/gemini.py` — Gemini integration using prompt from `gemini_prompt.txt`
-- `zerog/core/typer.py` + `clipboard.py` — Text injection with clipboard fallback
-- `zerog/gui/menu.py` — Status bar menu controller
-- `zerog/gui/hud.py` — Floating HUD with audio level visualization
-
-**Config**: `.env` file with `DEBUG=True/False` and `GOOGLE_API_KEY`. Debug log written to `mac_dictate.log`.
-
----
-
 ## Shared Assets
 
-- `ZeroG/Resources/gemini_prompt.txt` — System prompt loaded by both implementations for Gemini polishing
+- `ZeroGSwift/ZeroG/Resources/gemini_prompt.txt` — System prompt for Gemini polishing

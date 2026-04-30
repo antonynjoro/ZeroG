@@ -43,6 +43,33 @@ struct AppStateMachineTests {
         machine.transition(to: .processing)
         #expect(machine.currentState.isReady == false)
     }
+
+    @Test("statusText covers all user-visible states")
+    func statusTextForAllStates() {
+        let cases: [(AppState, String)] = [
+            (.loading("Loading model"), "Loading model"),
+            (.idle, "Ready"),
+            (.recording, "Recording"),
+            (.processing, "Transcribing"),
+            (.success, "Done"),
+            (.error("Microphone denied"), "Microphone denied")
+        ]
+
+        for (state, expectedText) in cases {
+            #expect(state.statusText.contains(expectedText))
+        }
+    }
+
+    @Test("Session fields can track audio level and Gemini mode")
+    func sessionFields() {
+        let machine = AppStateMachine()
+
+        machine.audioLevel = 0.42
+        machine.useGemini = true
+
+        #expect(machine.audioLevel == 0.42)
+        #expect(machine.useGemini == true)
+    }
     
     @Test("Full lifecycle: loading → idle → recording → processing → success → idle")
     func fullLifecycle() {
@@ -89,5 +116,16 @@ struct AppStateMachineTests {
         
         machine.transition(to: .error("Test"))
         #expect(machine.currentState.statusText.contains("Test"))
+    }
+
+    @Test("resetToIdle transitions back to idle after delay")
+    func resetToIdle() async throws {
+        let machine = AppStateMachine()
+        machine.transition(to: .success)
+
+        machine.resetToIdle(after: 0.01)
+        try await Task.sleep(for: .milliseconds(50))
+
+        #expect(machine.currentState == .idle)
     }
 }

@@ -1,3 +1,0 @@
-module GoogleGenerativeAI {
-    header "/Users/antony/Documents/Projects/ZeroG/ZeroGSwift/.build/arm64-apple-macosx/debug/GoogleGenerativeAI.build/include/GoogleGenerativeAI-Swift.h"
-}
