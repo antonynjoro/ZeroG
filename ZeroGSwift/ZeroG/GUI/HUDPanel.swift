@@ -5,12 +5,15 @@ import Combine
 // MARK: - HUD State Colors (ZeroG Brand)
 
 private enum HUDColors {
-    static let voidBlack = Color(red: 0.043, green: 0.043, blue: 0.043) // #0b0b0b
-    static let vacuumGrey = Color(red: 0.2, green: 0.2, blue: 0.2)     // #333333
-    static let warningGold = Color(red: 1.0, green: 0.843, blue: 0.0)   // #FFD700
-    static let signalWhite = Color(red: 0.929, green: 0.929, blue: 0.929) // #EDEDED
-    static let linkGreen = Color(red: 0.063, green: 0.725, blue: 0.506)  // Emerald
-    static let alertRose = Color(red: 0.957, green: 0.247, blue: 0.369)  // Rose
+    static let hudBase = Color(red: 0.067, green: 0.075, blue: 0.102) // #11131A
+    static let border = Color(red: 0.165, green: 0.184, blue: 0.239) // #2A2F3D
+    static let primaryText = Color(red: 0.957, green: 0.937, blue: 0.902) // #F4EFE6
+    static let secondaryText = Color(red: 0.682, green: 0.714, blue: 0.769) // #AEB6C4
+    static let voiceTeal = Color(red: 0.098, green: 0.843, blue: 0.871) // #19D7DE
+    static let orbitAmber = Color(red: 1.0, green: 0.698, blue: 0.247) // #FFB23F
+    static let polishViolet = Color(red: 0.725, green: 0.486, blue: 1.0) // #B97CFF
+    static let successGreen = Color(red: 0.133, green: 0.788, blue: 0.561) // #22C98F
+    static let errorRose = Color(red: 1.0, green: 0.416, blue: 0.478) // #FF6A7A
 }
 
 // MARK: - HUD SwiftUI View
@@ -37,7 +40,7 @@ struct HUDContentView: View {
         }
         .padding(.horizontal, 8)
         .frame(width: 210, height: 48)
-        .background(HUDColors.voidBlack)
+        .background(HUDColors.hudBase)
         .clipShape(Capsule())
         .overlay(
             Capsule()
@@ -75,56 +78,22 @@ struct HUDContentView: View {
         ZStack {
             switch stateMachine.currentState {
             case .recording:
-                // Orbit ring
-                Circle()
-                    .stroke(HUDColors.warningGold.opacity(0.3), lineWidth: 2)
-                
-                // Spinning arc
-                Circle()
-                    .trim(from: 0, to: 0.4)
-                    .stroke(HUDColors.warningGold, lineWidth: 3)
-                    .rotationEffect(.degrees(rotationAngle))
-                
-                // Mic icon
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(HUDColors.warningGold)
+                HUDIconImage(name: stateMachine.useGemini ? "hud-polish" : "hud-recording")
+                    .frame(width: 42, height: 42)
+                    .scaleEffect(1.0 + glowIntensity * 0.06)
                 
             case .processing:
-                Circle()
-                    .stroke(HUDColors.warningGold.opacity(0.2), lineWidth: 1)
-                
-                Circle()
-                    .trim(from: 0, to: 0.5)
-                    .stroke(
-                        LinearGradient(
-                            colors: [HUDColors.warningGold, HUDColors.signalWhite],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        ),
-                        lineWidth: 2
-                    )
-                    .rotationEffect(.degrees(rotationAngle))
-                
-                Image(systemName: "waveform")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(HUDColors.signalWhite)
+                HUDIconImage(name: stateMachine.useGemini ? "hud-polish" : "hud-processing")
+                    .frame(width: 40, height: 40)
+                    .rotationEffect(.degrees(stateMachine.useGemini ? rotationAngle : 0))
                 
             case .success:
-                Circle()
-                    .fill(HUDColors.linkGreen.opacity(0.1))
-                
-                Image(systemName: "checkmark")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(HUDColors.linkGreen)
+                HUDIconImage(name: "hud-success")
+                    .frame(width: 36, height: 36)
                 
             case .error:
-                Circle()
-                    .fill(HUDColors.alertRose.opacity(0.1))
-                
-                Image(systemName: "exclamationmark.triangle")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(HUDColors.alertRose)
+                HUDIconImage(name: "hud-error")
+                    .frame(width: 36, height: 36)
                 
             case .idle, .loading:
                 EmptyView()
@@ -141,38 +110,37 @@ struct HUDContentView: View {
             case .recording:
                 Text("ZeroG")
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .foregroundColor(HUDColors.signalWhite.opacity(0.6))
+                    .foregroundColor(HUDColors.secondaryText)
                     .textCase(.uppercase)
                 
                 Text("RECORDING...")
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundColor(HUDColors.warningGold)
+                    .foregroundColor(HUDColors.voiceTeal)
                 
             case .processing:
                 Text("ZeroG")
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .foregroundColor(HUDColors.signalWhite.opacity(0.6))
+                    .foregroundColor(HUDColors.secondaryText)
                     .textCase(.uppercase)
                 
                 Text("TRANSCRIBING...")
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundColor(HUDColors.signalWhite)
-                    .opacity(0.8)
+                    .foregroundColor(HUDColors.primaryText)
                 
             case .success:
                 Text("DONE ✓")
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundColor(HUDColors.linkGreen)
+                    .foregroundColor(HUDColors.successGreen)
                 
             case .error(let message):
                 Text("ERROR")
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .foregroundColor(HUDColors.alertRose.opacity(0.7))
+                    .foregroundColor(HUDColors.errorRose.opacity(0.8))
                     .textCase(.uppercase)
                 
                 Text(message.uppercased())
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(HUDColors.primaryText)
                     .lineLimit(1)
                 
             case .idle, .loading:
@@ -185,22 +153,50 @@ struct HUDContentView: View {
     
     private var borderColor: Color {
         switch stateMachine.currentState {
-        case .recording: return HUDColors.vacuumGrey
-        case .processing: return HUDColors.warningGold.opacity(0.3)
-        case .success: return HUDColors.linkGreen.opacity(0.3)
-        case .error: return HUDColors.alertRose.opacity(0.3)
-        case .idle, .loading: return HUDColors.vacuumGrey
+        case .recording: return HUDColors.voiceTeal.opacity(0.32)
+        case .processing: return (stateMachine.useGemini ? HUDColors.polishViolet : HUDColors.orbitAmber).opacity(0.28)
+        case .success: return HUDColors.successGreen.opacity(0.3)
+        case .error: return HUDColors.errorRose.opacity(0.34)
+        case .idle, .loading: return HUDColors.border
         }
     }
     
     private var glowColor: Color {
         switch stateMachine.currentState {
-        case .recording: return HUDColors.warningGold
-        case .processing: return HUDColors.warningGold
-        case .success: return HUDColors.linkGreen
-        case .error: return HUDColors.alertRose
+        case .recording: return HUDColors.voiceTeal
+        case .processing: return stateMachine.useGemini ? HUDColors.polishViolet : HUDColors.orbitAmber
+        case .success: return HUDColors.successGreen
+        case .error: return HUDColors.errorRose
         case .idle, .loading: return .clear
         }
+    }
+}
+
+private struct HUDIconImage: View {
+    let name: String
+
+    var body: some View {
+        if let image = loadImage() {
+            Image(nsImage: image)
+                .resizable()
+                .interpolation(.high)
+                .antialiased(true)
+                .scaledToFit()
+        }
+    }
+
+    private func loadImage() -> NSImage? {
+        let bundle = Bundle.module
+        let urls = [
+            bundle.url(forResource: name, withExtension: "png"),
+            bundle.url(forResource: name, withExtension: "png", subdirectory: "HUDIcons")
+        ]
+
+        guard let url = urls.compactMap({ $0 }).first else {
+            return nil
+        }
+
+        return NSImage(contentsOf: url)
     }
 }
 

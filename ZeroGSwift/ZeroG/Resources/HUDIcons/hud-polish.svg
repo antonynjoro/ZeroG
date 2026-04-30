@@ -1,0 +1,12 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="spark" x1="15" y1="15" x2="49" y2="49" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#19D7DE"/>
+      <stop offset="0.48" stop-color="#B97CFF"/>
+      <stop offset="1" stop-color="#FFB23F"/>
+    </linearGradient>
+  </defs>
+  <path d="M32 8L37 24L53 32L37 40L32 56L27 40L11 32L27 24L32 8Z" stroke="url(#spark)" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M32 22L35 29L42 32L35 35L32 42L29 35L22 32L29 29L32 22Z" fill="#F6F0E3"/>
+  <path d="M50 11L51.5 16L56 18L51.5 20L50 25L48.5 20L44 18L48.5 16L50 11Z" fill="#FFB23F"/>
+</svg>

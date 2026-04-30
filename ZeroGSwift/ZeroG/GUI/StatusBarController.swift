@@ -10,6 +10,7 @@ final class StatusBarController {
     
     private var statusItem: NSStatusItem!
     private var statusMenuItem: NSMenuItem!
+    private var copyTranscriptionMenuItem: NSMenuItem!
     private var geminiMenuItem: NSMenuItem!
     private var cancellables = Set<AnyCancellable>()
     
@@ -52,6 +53,18 @@ final class StatusBarController {
         
         menu.addItem(NSMenuItem.separator())
         
+        // Copy Last Transcription
+        copyTranscriptionMenuItem = NSMenuItem(
+            title: "Copy Last Transcription",
+            action: #selector(copyLastTranscription),
+            keyEquivalent: ""
+        )
+        copyTranscriptionMenuItem.target = self
+        copyTranscriptionMenuItem.isEnabled = false
+        menu.addItem(copyTranscriptionMenuItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
         // Quit
         let quitItem = NSMenuItem(
             title: "Quit ZeroG",
@@ -73,6 +86,13 @@ final class StatusBarController {
                 self?.updateUI(for: state)
             }
             .store(in: &cancellables)
+        
+        stateMachine.$lastTranscription
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] text in
+                self?.copyTranscriptionMenuItem.isEnabled = (text != nil)
+            }
+            .store(in: &cancellables)
     }
     
     // MARK: - UI Updates
@@ -83,41 +103,26 @@ final class StatusBarController {
         statusMenuItem.title = state.statusText
         
         let symbolName: String
-        let tintColor: NSColor
-        
         switch state {
         case .loading:
             symbolName = "arrow.down.circle"
-            tintColor = .systemOrange
         case .idle:
             symbolName = "mic"
-            tintColor = .labelColor
         case .recording:
             symbolName = "mic.fill"
-            tintColor = .systemRed
         case .processing:
             symbolName = "waveform.circle"
-            tintColor = .labelColor
         case .success:
             symbolName = "checkmark.circle"
-            tintColor = .systemGreen
         case .error:
             symbolName = "exclamationmark.triangle"
-            tintColor = .systemYellow
         }
         
         if let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "ZeroG Status") {
             let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
-            let configuredImage = image.withSymbolConfiguration(config) ?? image
-            
-            if tintColor != .labelColor {
-                configuredImage.isTemplate = false
-                button.contentTintColor = tintColor
-            } else {
-                configuredImage.isTemplate = true
-                button.contentTintColor = nil
-            }
-            
+            let configuredImage = (image.withSymbolConfiguration(config) ?? image).copy() as! NSImage
+            configuredImage.isTemplate = true
+            button.contentTintColor = nil
             button.image = configuredImage
         }
     }
@@ -163,5 +168,15 @@ final class StatusBarController {
                 geminiMenuItem.title = geminiMenuTitle()
             }
         }
+    }
+    
+    // MARK: - Copy Last Transcription
+    
+    @objc private func copyLastTranscription() {
+        guard let text = stateMachine.lastTranscription else { return }
+        
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
     }
 }
