@@ -60,14 +60,16 @@ struct AppStateMachineTests {
         }
     }
 
-    @Test("Session fields can track audio level and Gemini mode")
+    @Test("Session fields can track audio level, transcription, and Gemini mode")
     func sessionFields() {
         let machine = AppStateMachine()
 
         machine.audioLevel = 0.42
+        machine.lastTranscription = "hello world"
         machine.useGemini = true
 
         #expect(machine.audioLevel == 0.42)
+        #expect(machine.lastTranscription == "hello world")
         #expect(machine.useGemini == true)
     }
     
