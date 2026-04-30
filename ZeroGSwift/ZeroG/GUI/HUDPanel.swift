@@ -25,7 +25,7 @@ struct HUDContentView: View {
     
     /// Animated glow intensity from audio level.
     @State private var glowIntensity: CGFloat = 0.0
-    @State private var rotationAngle: Double = 0.0
+    @State private var processingPulse: CGFloat = 0.0
     
     var body: some View {
         HStack(spacing: 8) {
@@ -46,7 +46,7 @@ struct HUDContentView: View {
             Capsule()
                 .stroke(borderColor, lineWidth: 1)
         )
-        .shadow(color: glowColor.opacity(Double(glowIntensity) * 0.6), radius: CGFloat(10 + glowIntensity * 30))
+        .shadow(color: glowColor.opacity(Double(shadowIntensity) * 0.6), radius: CGFloat(10 + shadowIntensity * 30))
         .onReceive(stateMachine.$audioLevel) { newLevel in
             withAnimation(.easeOut(duration: newLevel > Float(glowIntensity) ? 0.12 : 0.6)) {
                 glowIntensity = CGFloat(min(1.0, newLevel * 5.0))
@@ -54,21 +54,39 @@ struct HUDContentView: View {
         }
         .onReceive(stateMachine.$currentState) { newState in
             switch newState {
-            case .recording, .processing:
-                startSpinning()
+            case .processing:
+                startProcessingPulse()
             default:
-                rotationAngle = 0
-                glowIntensity = 0
+                processingPulse = 0
+                if newState != .recording {
+                    glowIntensity = 0
+                }
             }
         }
     }
     
-    private func startSpinning() {
-        // Reset to 0 first so the animation can restart
-        rotationAngle = 0
-        withAnimation(.linear(duration: 2.0).repeatForever(autoreverses: false)) {
-            rotationAngle = 360
+    private func startProcessingPulse() {
+        processingPulse = 0
+        withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) {
+            processingPulse = 1
         }
+    }
+    
+    private var shadowIntensity: CGFloat {
+        switch stateMachine.currentState {
+        case .processing:
+            return 0.18 + processingPulse * 0.12
+        default:
+            return glowIntensity
+        }
+    }
+    
+    private var recordingIconScale: CGFloat {
+        1.0 + glowIntensity * 0.075
+    }
+    
+    private var processingIconScale: CGFloat {
+        1.0 + processingPulse * 0.035
     }
     
     // MARK: - Icon View
@@ -80,12 +98,12 @@ struct HUDContentView: View {
             case .recording:
                 HUDIconImage(name: stateMachine.useGemini ? "hud-polish" : "hud-recording")
                     .frame(width: 42, height: 42)
-                    .scaleEffect(1.0 + glowIntensity * 0.06)
+                    .scaleEffect(recordingIconScale)
                 
             case .processing:
                 HUDIconImage(name: stateMachine.useGemini ? "hud-polish" : "hud-processing")
                     .frame(width: 40, height: 40)
-                    .rotationEffect(.degrees(stateMachine.useGemini ? rotationAngle : 0))
+                    .scaleEffect(processingIconScale)
                 
             case .success:
                 HUDIconImage(name: "hud-success")
