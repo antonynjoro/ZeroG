@@ -36,14 +36,15 @@ final class TranscriptionEngine {
 
     /// Decoding options tuned for low latency: English-only, no language detection probe,
     /// no temperature fallback retries, VAD chunking to skip silent regions.
-    private static let fastDecodingOptions = DecodingOptions(
+    // internal so tests can assert these values don't regress
+    static let fastDecodingOptions = DecodingOptions(
         task: .transcribe,
         language: "en",
         temperature: 0.0,
-        temperatureFallbackCount: 0,
+        temperatureFallbackCount: 1,
         detectLanguage: false,
         skipSpecialTokens: true,
-        withoutTimestamps: true,
+        withoutTimestamps: false,
         chunkingStrategy: .vad
     )
     
