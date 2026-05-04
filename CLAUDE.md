@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Key Documents
+
+- [`docs/app-store-readiness-audit.md`](docs/app-store-readiness-audit.md) — Full audit of App Store compliance, production readiness, and maintainability (2026-05-03). Contains the prioritised fix checklist and the rationale for direct-download distribution over Mac App Store submission.
+
 ## After Making Changes
 
 After any code change to the Swift app, always run the build script and remind the user to restart the app:
