@@ -29,11 +29,14 @@ enum Config {
     
     // MARK: Audio
     
-    /// Silence threshold (RMS amplitude below which is considered silence).
-    static let silenceThreshold: Float = 0.015
-    
-    /// Seconds of continuous silence before auto-stop.
-    static let silenceDuration: TimeInterval = 5.0
+    /// Safety-only silence threshold (RMS amplitude below which is considered true silence).
+    static let silenceThreshold: Float = 0.003
+
+    /// Seconds of continuous true silence before auto-stop.
+    static let silenceDuration: TimeInterval = 12.0
+
+    /// Seconds to keep recording after key release to capture trailing speech.
+    static let recordingTailDuration: TimeInterval = 0.5
     
     // MARK: Whisper Model
     

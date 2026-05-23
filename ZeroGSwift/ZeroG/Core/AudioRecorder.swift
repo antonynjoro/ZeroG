@@ -8,8 +8,6 @@ import Accelerate
 
 private enum AudioConstants {
     static let sampleRate: Double = 16_000
-    static let silenceThreshold: Float = 0.015
-    static let silenceDuration: TimeInterval = 5.0
     static let chunkMinDuration: TimeInterval = 15.0
     static let chunkMaxDuration: TimeInterval = 25.0
     static let bufferSize: AVAudioFrameCount = 4096
@@ -17,13 +15,13 @@ private enum AudioConstants {
 
 // MARK: - Audio Recorder
 
-/// Captures audio using AVAudioEngine with real-time level metering and silence detection.
+/// Captures audio using AVAudioEngine with real-time level metering and safety-only silence detection.
 /// Replaces Python's `sounddevice` / PortAudio integration, eliminating deadlock-prone C library bindings.
 ///
 /// ## Architecture
 /// - Installs a tap on the audio engine's input node
 /// - Accumulates audio samples into chunks
-/// - Detects silence boundaries for automatic stop
+/// - Detects prolonged true silence as a safety cutoff
 /// - Publishes audio level for HUD visualization via the state machine
 final class AudioRecorder {
     
@@ -46,7 +44,7 @@ final class AudioRecorder {
     /// Chunks of audio ready for transcription, produced by the background chunker.
     private var transcribedTexts: [String] = []
     
-    // MARK: Silence Detection
+    // MARK: Safety Silence Detection
     
     private var silenceStartTime: Date?
     private var hasTriggedSilenceStop = false
@@ -106,24 +104,26 @@ final class AudioRecorder {
     }
     
     /// Stop capturing audio and trigger transcription of accumulated samples.
+    /// Continues recording for a short tail period after key release to capture trailing speech.
     func stopRecording(useGemini: Bool) {
         guard isRecording else { return }
         isRecording = false
-        
-        audioEngine.inputNode.removeTap(onBus: 0)
-        audioEngine.stop()
-        
-        #if DEBUG
-        print("[AudioRecorder] Recording stopped. useGemini=\(useGemini)")
-        #endif
-        
-        // Grab the accumulated audio
-        let rawAudio: [Float] = sampleQueue.sync { accumulatedSamples }
-        let audioData = Self.trimTrailingSilence(rawAudio)
 
-        // Process transcription in the background
-        Task.detached { [weak self] in
-            await self?.transcribeAndInject(audioData: audioData, useGemini: useGemini)
+        #if DEBUG
+        print("[AudioRecorder] Recording stopping (tail \(Config.recordingTailDuration)s). useGemini=\(useGemini)")
+        #endif
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + Config.recordingTailDuration) { [weak self] in
+            guard let self else { return }
+            self.audioEngine.inputNode.removeTap(onBus: 0)
+            self.audioEngine.stop()
+
+            let rawAudio: [Float] = self.sampleQueue.sync { self.accumulatedSamples }
+            let audioData = Self.trimTrailingSilence(rawAudio)
+
+            Task.detached { [weak self] in
+                await self?.transcribeAndInject(audioData: audioData, useGemini: useGemini)
+            }
         }
     }
 
@@ -134,7 +134,7 @@ final class AudioRecorder {
 
         let sampleRate = Int(AudioConstants.sampleRate)
         let windowSize = sampleRate / 50      // 20 ms windows = 320 samples @ 16 kHz
-        let tailKeep = sampleRate / 5         // keep up to 200 ms of trailing silence
+        let tailKeep = sampleRate / 2         // keep up to 500 ms of trailing silence
         guard samples.count > windowSize else { return samples }
 
         var lastVoicedEnd = 0
@@ -145,7 +145,7 @@ final class AudioRecorder {
                 vDSP_svesq(ptr.baseAddress! + idx, 1, &sumSq, vDSP_Length(windowSize))
             }
             let rms = sqrt(sumSq / Float(windowSize))
-            if rms >= AudioConstants.silenceThreshold {
+            if rms >= Config.silenceThreshold {
                 lastVoicedEnd = idx + windowSize
             }
             idx += windowSize
@@ -201,17 +201,17 @@ final class AudioRecorder {
             self?.accumulatedSamples.append(contentsOf: samples)
         }
         
-        // Silence detection
-        if rms < AudioConstants.silenceThreshold {
+        // Safety-only silence detection. Normal recording still ends when Control is released.
+        if rms < Config.silenceThreshold {
             if silenceStartTime == nil {
                 silenceStartTime = Date()
             } else if let start = silenceStartTime,
-                      Date().timeIntervalSince(start) > AudioConstants.silenceDuration,
+                      Date().timeIntervalSince(start) > Config.silenceDuration,
                       !hasTriggedSilenceStop {
                 hasTriggedSilenceStop = true
                 
                 #if DEBUG
-                print("[AudioRecorder] Silence detected (>\(AudioConstants.silenceDuration)s). Auto-stopping.")
+                print("[AudioRecorder] Safety silence detected (>\(Config.silenceDuration)s). Auto-stopping.")
                 #endif
                 
                 DispatchQueue.main.async { [weak self] in

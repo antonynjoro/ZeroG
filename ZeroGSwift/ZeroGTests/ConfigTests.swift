@@ -6,8 +6,9 @@ import Testing
 struct ConfigTests {
     @Test("Config exposes expected audio and model defaults")
     func defaultConstants() {
-        #expect(Config.silenceThreshold == 0.015)
-        #expect(Config.silenceDuration == 5.0)
+        #expect(Config.silenceThreshold == 0.003)
+        #expect(Config.silenceDuration == 12.0)
+        #expect(Config.recordingTailDuration == 0.5)
         #expect(Config.whisperModel == "large-v3-v20240930_turbo")
     }
 
