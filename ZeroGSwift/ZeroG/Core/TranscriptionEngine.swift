@@ -45,6 +45,10 @@ final class TranscriptionEngine {
         detectLanguage: false,
         skipSpecialTokens: true,
         withoutTimestamps: false,
+        suppressBlank: true,
+        compressionRatioThreshold: 2.4,
+        logProbThreshold: -1.0,
+        noSpeechThreshold: 0.6,
         chunkingStrategy: .vad
     )
     
