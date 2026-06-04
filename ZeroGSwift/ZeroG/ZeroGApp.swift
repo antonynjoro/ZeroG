@@ -79,7 +79,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 
                 DispatchQueue.main.async {
                     self.stateMachine.transition(to: .idle)
-                    print("🧑‍🚀 ZeroG Ready — Hold Control to start recording")
+                    print("🧑‍🚀 ZeroG Ready — Hold \(Config.triggerKey.displayName) to start recording")
                 }
             } catch {
                 print("⚠️ WhisperKit initialization failed: \(error)")

@@ -38,11 +38,32 @@ enum Config {
     /// Seconds to keep recording after key release to capture trailing speech.
     static let recordingTailDuration: TimeInterval = 0.5
     
+    // MARK: Trigger Key
+
+    private static let triggerKeyDefaultsKey = "TriggerKeyID"
+
+    static var triggerKey: TriggerKey {
+        let id = UserDefaults.standard.string(forKey: triggerKeyDefaultsKey) ?? "leftControl"
+        return TriggerKey.from(id: id)
+    }
+
+    static func setTriggerKey(_ key: TriggerKey) {
+        UserDefaults.standard.set(key.id, forKey: triggerKeyDefaultsKey)
+        NotificationCenter.default.post(name: .triggerKeyDidChange, object: nil, userInfo: ["triggerKey": key])
+    }
+
     // MARK: Whisper Model
-    
+
     /// The WhisperKit model variant to use.
     static let whisperModel: String = "large-v3-v20240930_turbo"
     
+}
+
+extension Notification.Name {
+    static let triggerKeyDidChange = Notification.Name("ZeroG.triggerKeyDidChange")
+}
+
+extension Config {
     // MARK: Load
     
     /// Load configuration from `.env` file if present (development convenience).

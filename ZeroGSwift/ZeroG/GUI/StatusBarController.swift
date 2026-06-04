@@ -12,6 +12,7 @@ final class StatusBarController {
     private var statusMenuItem: NSMenuItem!
     private var copyTranscriptionMenuItem: NSMenuItem!
     private var geminiMenuItem: NSMenuItem!
+    private var triggerKeySubmenu: NSMenu!
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: Dependencies
@@ -52,7 +53,23 @@ final class StatusBarController {
         menu.addItem(geminiMenuItem)
         
         menu.addItem(NSMenuItem.separator())
-        
+
+        // Record Key submenu
+        let triggerKeyItem = NSMenuItem(title: "Record Key", action: nil, keyEquivalent: "")
+        triggerKeySubmenu = NSMenu()
+        let currentKey = Config.triggerKey
+        for option in TriggerKey.allOptions {
+            let item = NSMenuItem(title: option.displayName, action: #selector(triggerKeySelected(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = option.id
+            item.state = (option == currentKey) ? .on : .off
+            triggerKeySubmenu.addItem(item)
+        }
+        triggerKeyItem.submenu = triggerKeySubmenu
+        menu.addItem(triggerKeyItem)
+
+        menu.addItem(NSMenuItem.separator())
+
         // Copy Last Transcription
         copyTranscriptionMenuItem = NSMenuItem(
             title: "Copy Last Transcription",
@@ -127,6 +144,18 @@ final class StatusBarController {
         }
     }
     
+    // MARK: - Trigger Key Selection
+
+    @objc private func triggerKeySelected(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+        let newKey = TriggerKey.from(id: id)
+        Config.setTriggerKey(newKey)
+
+        for item in triggerKeySubmenu.items {
+            item.state = (item.representedObject as? String) == id ? .on : .off
+        }
+    }
+
     // MARK: - Gemini Key Dialog
     
     private func geminiMenuTitle() -> String {
@@ -142,7 +171,7 @@ final class StatusBarController {
         
         let alert = NSAlert()
         alert.messageText = "Gemini API Key"
-        alert.informativeText = "Enter your Google Gemini API key.\nThis enables grammar correction when you hold Control+Q while recording.\n\nGet a key at: ai.google.dev"
+        alert.informativeText = "Enter your Google Gemini API key.\nThis enables grammar correction when you hold \(Config.triggerKey.displayName)+Q while recording.\n\nGet a key at: ai.google.dev"
         alert.alertStyle = .informational
         alert.addButton(withTitle: "Save")
         alert.addButton(withTitle: "Cancel")

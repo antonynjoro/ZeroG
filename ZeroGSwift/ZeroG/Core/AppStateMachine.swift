@@ -24,7 +24,7 @@ enum AppState: Equatable {
     var statusText: String {
         switch self {
         case .loading(let msg): return msg
-        case .idle: return "Ready — Hold Control to record"
+        case .idle: return "Ready — Hold \(Config.triggerKey.displayName) to record"
         case .recording: return "Recording..."
         case .processing: return "Transcribing..."
         case .success: return "Done ✓"
