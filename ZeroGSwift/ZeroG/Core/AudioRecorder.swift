@@ -48,9 +48,12 @@ final class AudioRecorder: @unchecked Sendable {
     private var transcribedTexts: [String] = []
     
     // MARK: Safety Silence Detection
-    
-    private var silenceStartTime: Date?
-    private var hasTriggedSilenceStop = false
+
+    /// Pure auto-stop decision logic (thresholds tested in isolation).
+    private var silenceTracker = SilenceTracker(
+        rmsThreshold: Config.silenceThreshold,
+        silenceDuration: Config.silenceDuration
+    )
     
     // MARK: Lifecycle
     
@@ -66,8 +69,7 @@ final class AudioRecorder: @unchecked Sendable {
         guard !isRecording else { return }
         
         // Reset state
-        silenceStartTime = nil
-        hasTriggedSilenceStop = false
+        silenceTracker.reset()
         sampleQueue.sync {
             accumulatedSamples.removeAll(keepingCapacity: true)
         }
@@ -140,8 +142,9 @@ final class AudioRecorder: @unchecked Sendable {
     }
 
     /// Drop trailing samples whose 20 ms-window RMS falls below the silence threshold,
-    /// keeping a small tail (200 ms) so the model gets a clean end-of-utterance.
-    private static func trimTrailingSilence(_ samples: [Float]) -> [Float] {
+    /// keeping a small tail so the model gets a clean end-of-utterance.
+    /// internal so tests can drive it directly.
+    static func trimTrailingSilence(_ samples: [Float]) -> [Float] {
         guard !samples.isEmpty else { return samples }
 
         let sampleRate = Int(AudioConstants.sampleRate)
@@ -216,22 +219,11 @@ final class AudioRecorder: @unchecked Sendable {
         }
         
         // Safety-only silence detection. Normal recording still ends when Control is released.
-        if rms < Config.silenceThreshold {
-            if silenceStartTime == nil {
-                silenceStartTime = Date()
-            } else if let start = silenceStartTime,
-                      Date().timeIntervalSince(start) > Config.silenceDuration,
-                      !hasTriggedSilenceStop {
-                hasTriggedSilenceStop = true
-
-                Log.debug("AudioRecorder", "Safety silence detected (>\(Config.silenceDuration)s). Auto-stopping.")
-
-                DispatchQueue.main.async { [weak self] in
-                    self?.beginProcessing()
-                }
+        if silenceTracker.observe(rms: rms, at: Date()) == .stop {
+            Log.debug("AudioRecorder", "Safety silence detected (>\(Config.silenceDuration)s). Auto-stopping.")
+            DispatchQueue.main.async { [weak self] in
+                self?.beginProcessing()
             }
-        } else {
-            silenceStartTime = nil
         }
     }
     
