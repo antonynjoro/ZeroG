@@ -52,8 +52,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
             onStartRecording: { [weak self] in
                 self?.audioRecorder.startRecording()
             },
-            onStopRecording: { [weak self] useGemini in
-                self?.audioRecorder.stopRecording(useGemini: useGemini)
+            onStopRecording: { [weak self] in
+                self?.audioRecorder.beginProcessing()
             }
         )
         

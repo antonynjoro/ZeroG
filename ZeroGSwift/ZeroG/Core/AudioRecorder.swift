@@ -104,6 +104,19 @@ final class AudioRecorder: @unchecked Sendable {
         }
     }
     
+    /// The single entry point for ending a recording session. Every stop trigger
+    /// — key release, safety timeout, mid-session trigger-key change, and the
+    /// silence cutoff — routes here so the "are we recording? → transition →
+    /// stop" sequence lives in exactly one place. Reads the Gemini flag from the
+    /// session context. Must be called on the main thread (it touches the state
+    /// machine).
+    func beginProcessing() {
+        guard stateMachine.currentState == .recording else { return }
+        let useGemini = stateMachine.useGemini
+        stateMachine.transition(to: .processing)
+        stopRecording(useGemini: useGemini)
+    }
+
     /// Stop capturing audio and trigger transcription of accumulated samples.
     /// Continues recording for a short tail period after key release to capture trailing speech.
     func stopRecording(useGemini: Bool) {
@@ -214,10 +227,7 @@ final class AudioRecorder: @unchecked Sendable {
                 Log.debug("AudioRecorder", "Safety silence detected (>\(Config.silenceDuration)s). Auto-stopping.")
 
                 DispatchQueue.main.async { [weak self] in
-                    guard let self else { return }
-                    let gemini = self.stateMachine.useGemini
-                    self.stateMachine.transition(to: .processing)
-                    self.stopRecording(useGemini: gemini)
+                    self?.beginProcessing()
                 }
             }
         } else {

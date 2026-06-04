@@ -22,7 +22,9 @@ final class KeyMonitor {
 
     private let stateMachine: AppStateMachine
     private let onStartRecording: () -> Void
-    private let onStopRecording: (Bool) -> Void  // (useGemini)
+    /// Requests that recording end and processing begin. The Gemini flag is read
+    /// from the shared session context downstream, so no argument is needed.
+    private let onStopRecording: () -> Void
 
     // MARK: State
 
@@ -42,7 +44,7 @@ final class KeyMonitor {
     init(
         stateMachine: AppStateMachine,
         onStartRecording: @escaping () -> Void,
-        onStopRecording: @escaping (Bool) -> Void
+        onStopRecording: @escaping () -> Void
     ) {
         self.stateMachine = stateMachine
         self.onStartRecording = onStartRecording
@@ -161,10 +163,7 @@ final class KeyMonitor {
             timeoutTimer?.invalidate()
             timeoutTimer = nil
             DispatchQueue.main.async { [weak self] in
-                guard let self, self.stateMachine.currentState == .recording else { return }
-                let useGemini = self.isQPressedDuringSession
-                self.stateMachine.transition(to: .processing)
-                self.onStopRecording(useGemini)
+                self?.onStopRecording()
             }
         }
 
@@ -241,14 +240,7 @@ final class KeyMonitor {
         timeoutTimer = nil
 
         DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            let state = self.stateMachine.currentState
-
-            if state == .recording {
-                let useGemini = self.isQPressedDuringSession
-                self.stateMachine.transition(to: .processing)
-                self.onStopRecording(useGemini)
-            }
+            self?.onStopRecording()
         }
 
         recordingStartTime = nil
@@ -264,9 +256,7 @@ final class KeyMonitor {
             Log.debug("KeyMonitor", "Recording timeout (\(self.maxRecordingDuration)s) — forcing stop.")
 
             self.isTriggerKeyPressed = false
-            let useGemini = self.isQPressedDuringSession
-            self.stateMachine.transition(to: .processing)
-            self.onStopRecording(useGemini)
+            self.onStopRecording()
         }
     }
 }
