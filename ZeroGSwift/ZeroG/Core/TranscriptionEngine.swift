@@ -136,7 +136,7 @@ final class TranscriptionEngine {
             // Step 4: Force CoreML decoder specialization now so the user's first
             // dictation doesn't pay the ~300–600 ms cold-start cost.
             reportStatus("Priming decoder...")
-            let warmupAudio = [Float](repeating: 0.0, count: 16_000) // 1 s of silence at 16 kHz
+            let warmupAudio = [Float](repeating: 0.0, count: Int(AudioConstants.sampleRate)) // 1 s of silence
             _ = try? await kit.transcribe(audioArray: warmupAudio, decodeOptions: Self.fastDecodingOptions)
 
             whisperKit = kit

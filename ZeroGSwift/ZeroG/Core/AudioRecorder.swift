@@ -6,7 +6,10 @@ import Accelerate
 
 // MARK: - Constants
 
-private enum AudioConstants {
+/// Audio capture constants. Sample-rate truth lives here — other components
+/// (e.g. `TranscriptionEngine`) reference `AudioConstants.sampleRate` rather than
+/// re-hardcoding 16_000.
+enum AudioConstants {
     static let sampleRate: Double = 16_000
     static let chunkMinDuration: TimeInterval = 15.0
     static let chunkMaxDuration: TimeInterval = 25.0
@@ -77,7 +80,7 @@ final class AudioRecorder: @unchecked Sendable {
         guard recordingFormat.sampleRate > 0 else {
             DispatchQueue.main.async { [weak self] in
                 self?.stateMachine.transition(to: .error("No microphone available"))
-                self?.stateMachine.resetToIdle(after: 3.0)
+                self?.stateMachine.resetToIdle(after: Config.Timing.errorReset)
             }
             return
         }
@@ -98,7 +101,7 @@ final class AudioRecorder: @unchecked Sendable {
         } catch {
             DispatchQueue.main.async { [weak self] in
                 self?.stateMachine.transition(to: .error("Mic Error: \(error.localizedDescription)"))
-                self?.stateMachine.resetToIdle(after: 3.0)
+                self?.stateMachine.resetToIdle(after: Config.Timing.errorReset)
             }
         }
     }
@@ -284,7 +287,7 @@ final class AudioRecorder: @unchecked Sendable {
             #endif
             DispatchQueue.main.async { [weak self] in
                 self?.stateMachine.transition(to: .error("Processing Failed"))
-                self?.stateMachine.resetToIdle(after: 3.0)
+                self?.stateMachine.resetToIdle(after: Config.Timing.errorReset)
             }
         }
     }

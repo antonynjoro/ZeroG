@@ -19,9 +19,9 @@ final class GeminiService {
     // MARK: Configuration
     
     private let model: GenerativeModel
-    
+
     /// The model name matching the Python version's configuration.
-    private static let modelName = "gemini-2.0-flash-exp"
+    private static let modelName = Config.geminiModel
     
     // MARK: Initialization
     
@@ -37,15 +37,11 @@ final class GeminiService {
         )
     }
     
-    private static let apiKeyDefaultsKey = "GOOGLE_API_KEY"
-    
     /// Initialize the shared instance from configuration.
     /// Checks UserDefaults first (set via menu bar), then environment variable.
     static func configure() {
-        // Check UserDefaults first, then environment variable
-        let apiKey = UserDefaults.standard.string(forKey: apiKeyDefaultsKey)
-            ?? ProcessInfo.processInfo.environment["GOOGLE_API_KEY"]
-        
+        let apiKey = Config.googleAPIKey
+
         guard let apiKey, !apiKey.isEmpty else {
             print("[GeminiService] No API key found. Set one via the ZeroG menu bar. Gemini disabled.")
             return
@@ -56,23 +52,21 @@ final class GeminiService {
     
     /// Configure with a specific API key (called from the settings dialog).
     static func configure(apiKey: String) {
-        UserDefaults.standard.set(apiKey, forKey: apiKeyDefaultsKey)
+        UserDefaults.standard.set(apiKey, forKey: Config.googleAPIKeyDefaultsKey)
         configureWithKey(apiKey)
         print("[GeminiService] API key saved and configured.")
     }
-    
+
     /// Returns the currently stored API key (masked for display).
     static var storedKeyPreview: String? {
-        guard let key = UserDefaults.standard.string(forKey: apiKeyDefaultsKey)
-                ?? ProcessInfo.processInfo.environment["GOOGLE_API_KEY"],
-              !key.isEmpty else { return nil }
+        guard let key = Config.googleAPIKey, !key.isEmpty else { return nil }
         let prefix = String(key.prefix(6))
         return "\(prefix)...\(String(key.suffix(4)))"
     }
     
     private static func configureWithKey(_ apiKey: String) {
         let systemInstruction: String
-        if let promptURL = Bundle.main.url(forResource: "gemini_prompt", withExtension: "txt"),
+        if let promptURL = Bundle.main.url(forResource: Config.geminiPromptResource, withExtension: "txt"),
            let promptContent = try? String(contentsOf: promptURL, encoding: .utf8) {
             systemInstruction = promptContent.trimmingCharacters(in: .whitespacesAndNewlines)
         } else {

@@ -336,7 +336,7 @@ final class HUDPanelController {
         panel.orderFrontRegardless()
         
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.3
+            context.duration = Config.Timing.hudSlideIn
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             
             panel.animator().setFrameOrigin(NSPoint(x: centerX, y: visibleY))
@@ -351,7 +351,7 @@ final class HUDPanelController {
         panel.ignoresMouseEvents = true
         
         NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.25
+            context.duration = Config.Timing.hudSlideOut
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
             
             panel.animator().setFrameOrigin(NSPoint(x: centerX, y: hiddenY))

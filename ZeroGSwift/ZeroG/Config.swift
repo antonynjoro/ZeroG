@@ -20,12 +20,23 @@ enum Config {
     }
     
     // MARK: Gemini API
-    
-    /// Google API key for Gemini integration.
+
+    /// UserDefaults / environment key under which the Gemini API key is stored.
+    /// Single source of truth — never hardcode this string elsewhere.
+    static let googleAPIKeyDefaultsKey = "GOOGLE_API_KEY"
+
+    /// Google API key for Gemini integration. A key set explicitly via the menu bar
+    /// (stored in UserDefaults) takes precedence over an environment variable.
     static var googleAPIKey: String? {
-        ProcessInfo.processInfo.environment["GOOGLE_API_KEY"]
-            ?? UserDefaults.standard.string(forKey: "GOOGLE_API_KEY")
+        UserDefaults.standard.string(forKey: googleAPIKeyDefaultsKey)
+            ?? ProcessInfo.processInfo.environment[googleAPIKeyDefaultsKey]
     }
+
+    /// Gemini model variant used for text polishing.
+    static let geminiModel = "gemini-2.0-flash-exp"
+
+    /// Bundle resource (sans extension) holding the Gemini system prompt.
+    static let geminiPromptResource = "gemini_prompt"
     
     // MARK: Audio
 
@@ -41,6 +52,33 @@ enum Config {
     /// Sourced from `TranscriptionQuality.recordingTailSeconds`.
     static let recordingTailDuration: TimeInterval = TranscriptionQuality.recordingTailSeconds
 
+    // MARK: Timing
+
+    /// UI / lifecycle delays, in seconds. Centralized so the perceived-latency knobs
+    /// aren't scattered as magic numbers across the codebase.
+    enum Timing {
+        /// How long to hold the injected text on the clipboard before restoring the
+        /// user's original contents. Must outlast the simulated Cmd+V paste.
+        static let clipboardRestore: TimeInterval = 0.6
+
+        /// How long the `.success` HUD lingers before auto-returning to `.idle`.
+        static let successReset: TimeInterval = 2.0
+
+        /// How long an `.error` HUD lingers before auto-returning to `.idle`.
+        static let errorReset: TimeInterval = 3.0
+
+        /// HUD slide-in / slide-out animation durations.
+        static let hudSlideIn: TimeInterval = 0.3
+        static let hudSlideOut: TimeInterval = 0.25
+    }
+
+    // MARK: Notifications
+
+    /// userInfo keys for the notifications this app posts.
+    enum NotificationKeys {
+        static let triggerKey = "triggerKey"
+    }
+
     // MARK: Trigger Key
 
     private static let triggerKeyDefaultsKey = "TriggerKeyID"
@@ -52,7 +90,7 @@ enum Config {
 
     static func setTriggerKey(_ key: TriggerKey) {
         UserDefaults.standard.set(key.id, forKey: triggerKeyDefaultsKey)
-        NotificationCenter.default.post(name: .triggerKeyDidChange, object: nil, userInfo: ["triggerKey": key])
+        NotificationCenter.default.post(name: .triggerKeyDidChange, object: nil, userInfo: [NotificationKeys.triggerKey: key])
     }
 
     // MARK: Whisper Model

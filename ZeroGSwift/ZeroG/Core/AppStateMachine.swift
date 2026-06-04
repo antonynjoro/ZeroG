@@ -65,7 +65,7 @@ final class AppStateMachine: ObservableObject {
     }
     
     /// Convenience: transition to `.idle` after a delay.
-    func resetToIdle(after delay: TimeInterval = 2.0) {
+    func resetToIdle(after delay: TimeInterval = Config.Timing.successReset) {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             self?.transition(to: .idle)
         }

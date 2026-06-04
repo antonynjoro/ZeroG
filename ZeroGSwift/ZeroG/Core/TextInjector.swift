@@ -36,7 +36,7 @@ enum TextInjector {
         
         // 4. Restore clipboard after a delay
         if let snapshot = snapshot, !snapshot.isEmpty {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Config.Timing.clipboardRestore) {
                 restoreClipboard(snapshot, to: pasteboard)
             }
         }

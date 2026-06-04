@@ -181,7 +181,7 @@ final class StatusBarController {
         input.placeholderString = "AIza..."
         
         // Pre-fill with existing key if available
-        if let existing = UserDefaults.standard.string(forKey: "GOOGLE_API_KEY") {
+        if let existing = UserDefaults.standard.string(forKey: Config.googleAPIKeyDefaultsKey) {
             input.stringValue = existing
         }
         

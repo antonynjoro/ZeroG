@@ -155,7 +155,7 @@ final class KeyMonitor {
     // MARK: - Trigger Key Change
 
     @objc private func triggerKeyChanged(_ notification: Notification) {
-        guard let newKey = notification.userInfo?["triggerKey"] as? TriggerKey else { return }
+        guard let newKey = notification.userInfo?[Config.NotificationKeys.triggerKey] as? TriggerKey else { return }
 
         let wasRecording = isTriggerKeyPressed
         triggerKey = newKey
