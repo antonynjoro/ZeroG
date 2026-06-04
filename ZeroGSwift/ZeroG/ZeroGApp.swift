@@ -16,7 +16,7 @@ struct ZeroGApp: App {
 
 // MARK: - App Delegate
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     
     // MARK: Core Components
     

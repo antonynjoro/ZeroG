@@ -23,7 +23,7 @@ private enum AudioConstants {
 /// - Accumulates audio samples into chunks
 /// - Detects prolonged true silence as a safety cutoff
 /// - Publishes audio level for HUD visualization via the state machine
-final class AudioRecorder {
+final class AudioRecorder: @unchecked Sendable {
     
     // MARK: Dependencies
     
