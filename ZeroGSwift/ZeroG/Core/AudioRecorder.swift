@@ -134,7 +134,7 @@ final class AudioRecorder {
 
         let sampleRate = Int(AudioConstants.sampleRate)
         let windowSize = sampleRate / 50      // 20 ms windows = 320 samples @ 16 kHz
-        let tailKeep = sampleRate / 2         // keep up to 500 ms of trailing silence
+        let tailKeep = sampleRate / 5          // keep up to 200 ms of trailing silence
         guard samples.count > windowSize else { return samples }
 
         var lastVoicedEnd = 0
