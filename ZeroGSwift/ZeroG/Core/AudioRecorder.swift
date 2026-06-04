@@ -94,10 +94,8 @@ final class AudioRecorder: @unchecked Sendable {
             try audioEngine.start()
             isRecording = true
             playFeedbackSound()
-            
-            #if DEBUG
-            print("[AudioRecorder] Recording started. Format: \(recordingFormat)")
-            #endif
+
+            Log.debug("AudioRecorder", "Recording started. Format: \(recordingFormat)")
         } catch {
             DispatchQueue.main.async { [weak self] in
                 self?.stateMachine.transition(to: .error("Mic Error: \(error.localizedDescription)"))
@@ -112,9 +110,7 @@ final class AudioRecorder: @unchecked Sendable {
         guard isRecording else { return }
         isRecording = false
 
-        #if DEBUG
-        print("[AudioRecorder] Recording stopping (tail \(Config.recordingTailDuration)s). useGemini=\(useGemini)")
-        #endif
+        Log.debug("AudioRecorder", "Recording stopping (tail \(Config.recordingTailDuration)s). useGemini=\(useGemini)")
 
         DispatchQueue.main.asyncAfter(deadline: .now() + Config.recordingTailDuration) { [weak self] in
             guard let self else { return }
@@ -214,11 +210,9 @@ final class AudioRecorder: @unchecked Sendable {
                       Date().timeIntervalSince(start) > Config.silenceDuration,
                       !hasTriggedSilenceStop {
                 hasTriggedSilenceStop = true
-                
-                #if DEBUG
-                print("[AudioRecorder] Safety silence detected (>\(Config.silenceDuration)s). Auto-stopping.")
-                #endif
-                
+
+                Log.debug("AudioRecorder", "Safety silence detected (>\(Config.silenceDuration)s). Auto-stopping.")
+
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
                     let gemini = self.stateMachine.useGemini
@@ -250,10 +244,8 @@ final class AudioRecorder: @unchecked Sendable {
             
             let transcriptionDuration = CFAbsoluteTimeGetCurrent() - startTime
             
-            #if DEBUG
             let audioDuration = Double(audioData.count) / AudioConstants.sampleRate
-            print("[AudioRecorder] Transcribed \(String(format: "%.1f", audioDuration))s audio in \(String(format: "%.2f", transcriptionDuration))s: \(text)")
-            #endif
+            Log.debug("AudioRecorder", "Transcribed \(String(format: "%.1f", audioDuration))s audio in \(String(format: "%.2f", transcriptionDuration))s: \(text)")
             
             guard !text.isEmpty else {
                 DispatchQueue.main.async { [weak self] in
@@ -282,9 +274,7 @@ final class AudioRecorder: @unchecked Sendable {
             }
             
         } catch {
-            #if DEBUG
-            print("[AudioRecorder] Transcription error: \(error)")
-            #endif
+            Log.debug("AudioRecorder", "Transcription error: \(error)")
             DispatchQueue.main.async { [weak self] in
                 self?.stateMachine.transition(to: .error("Processing Failed"))
                 self?.stateMachine.resetToIdle(after: Config.Timing.errorReset)

@@ -43,7 +43,7 @@ final class GeminiService {
         let apiKey = Config.googleAPIKey
 
         guard let apiKey, !apiKey.isEmpty else {
-            print("[GeminiService] No API key found. Set one via the ZeroG menu bar. Gemini disabled.")
+            Log.debug("GeminiService", "No API key found. Set one via the ZeroG menu bar. Gemini disabled.")
             return
         }
         
@@ -54,7 +54,7 @@ final class GeminiService {
     static func configure(apiKey: String) {
         UserDefaults.standard.set(apiKey, forKey: Config.googleAPIKeyDefaultsKey)
         configureWithKey(apiKey)
-        print("[GeminiService] API key saved and configured.")
+        Log.debug("GeminiService", "API key saved and configured.")
     }
 
     /// Returns the currently stored API key (masked for display).
@@ -74,7 +74,7 @@ final class GeminiService {
         }
         
         shared = GeminiService(apiKey: apiKey, systemInstruction: systemInstruction)
-        print("[GeminiService] Configured with model: \(modelName)")
+        Log.debug("GeminiService", "Configured with model: \(modelName)")
         
         Task.detached {
             await shared?.warmup()
@@ -94,20 +94,14 @@ final class GeminiService {
             
             if let processedText = response.text?.trimmingCharacters(in: .whitespacesAndNewlines),
                !processedText.isEmpty {
-                
-                #if DEBUG
-                print("[GeminiService] Processed: '\(processedText.prefix(60))...'")
-                #endif
-                
+                Log.debug("GeminiService", "Processed: '\(processedText.prefix(60))...'")
                 return processedText
             }
-            
+
             return text
-            
+
         } catch {
-            #if DEBUG
-            print("[GeminiService] Processing failed: \(error.localizedDescription)")
-            #endif
+            Log.debug("GeminiService", "Processing failed: \(error.localizedDescription)")
             return text
         }
     }
@@ -117,13 +111,9 @@ final class GeminiService {
     private func warmup() async {
         do {
             _ = try await model.generateContent("Warmup.")
-            #if DEBUG
-            print("[GeminiService] Warmup complete.")
-            #endif
+            Log.debug("GeminiService", "Warmup complete.")
         } catch {
-            #if DEBUG
-            print("[GeminiService] Warmup failed (non-critical): \(error.localizedDescription)")
-            #endif
+            Log.debug("GeminiService", "Warmup failed (non-critical): \(error.localizedDescription)")
         }
     }
 }

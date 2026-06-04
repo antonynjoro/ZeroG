@@ -174,8 +174,6 @@ extension Config {
             setenv(key, value, 1)
         }
         
-        #if DEBUG
-        print("[Config] Loaded .env file from: \(envPath)")
-        #endif
+        Log.debug("Config", "Loaded .env file from: \(envPath)")
     }
 }

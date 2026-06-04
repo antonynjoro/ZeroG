@@ -69,10 +69,9 @@ final class TranscriptionEngine {
         guard !isInitialized else { return }
         
         let startTime = CFAbsoluteTimeGetCurrent()
-        print("[TranscriptionEngine] Attempting model load: \(modelName)")
-        
+        Log.debug("TranscriptionEngine", "Attempting model load: \(modelName)")
+
         do {
-            print("[TranscriptionEngine] Trying model: \(modelName)...")
             reportStatus("Downloading model: \(modelName)...")
             
             // Step 1: Download the model with progress reporting
@@ -82,12 +81,12 @@ final class TranscriptionEngine {
                     let pct = Int(progress.fractionCompleted * 100)
                     let message = "Downloading model: \(pct)%"
                     self?.reportStatus(message)
-                    print("[TranscriptionEngine] \(message)")
+                    Log.debug("TranscriptionEngine", message)
                 }
             )
             
             reportStatus("Loading model into memory...")
-            print("[TranscriptionEngine] Download complete. Loading from: \(modelFolder.path)")
+            Log.debug("TranscriptionEngine", "Download complete. Loading from: \(modelFolder.path)")
             
             // Step 2: Initialize WhisperKit with the downloaded model folder
             #if DEBUG
@@ -126,7 +125,7 @@ final class TranscriptionEngine {
                     phase = "Preparing model..."
                 }
                 self?.reportStatus(phase)
-                print("[TranscriptionEngine] Model state: \(oldState) → \(newState)")
+                Log.debug("TranscriptionEngine", "Model state: \(String(describing: oldState)) → \(String(describing: newState))")
             }
             
             // Step 3: Load models into memory
@@ -143,11 +142,11 @@ final class TranscriptionEngine {
             isInitialized = true
             
             let duration = CFAbsoluteTimeGetCurrent() - startTime
-            print("[TranscriptionEngine] ✅ Model '\(modelName)' loaded in \(String(format: "%.1f", duration))s")
+            Log.debug("TranscriptionEngine", "✅ Model '\(modelName)' loaded in \(String(format: "%.1f", duration))s")
             reportStatus("Ready!")
-            
+
         } catch {
-            print("[TranscriptionEngine] ❌ Model '\(modelName)' failed: \(error.localizedDescription)")
+            Log.error("TranscriptionEngine", "❌ Model '\(modelName)' failed: \(error.localizedDescription)")
             throw TranscriptionError.transcriptionFailed(error.localizedDescription)
         }
     }
@@ -200,17 +199,13 @@ final class TranscriptionEngine {
         while let last = kept.last,
               !last.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               last.noSpeechProb >= drop {
-            #if DEBUG
-            print("[TranscriptionEngine] Dropped trailing hallucination (noSpeechProb=\(String(format: "%.2f", last.noSpeechProb)), avgLogprob=\(String(format: "%.2f", last.avgLogprob))): \"\(last.text)\"")
-            #endif
+            Log.debug("TranscriptionEngine", "Dropped trailing hallucination (noSpeechProb=\(String(format: "%.2f", last.noSpeechProb)), avgLogprob=\(String(format: "%.2f", last.avgLogprob))): \"\(last.text)\"")
             kept.removeLast()
         }
 
         // b. Backstop: a surviving standalone final segment that's exactly a caption-ism.
         if let last = kept.last, isTrailingHallucination(last.text) {
-            #if DEBUG
-            print("[TranscriptionEngine] Dropped trailing caption-ism (backstop): \"\(last.text)\"")
-            #endif
+            Log.debug("TranscriptionEngine", "Dropped trailing caption-ism (backstop): \"\(last.text)\"")
             kept.removeLast()
         }
 
@@ -222,9 +217,7 @@ final class TranscriptionEngine {
         // d. After collapsing, a repeated run like "thank you thank you thank you" reduces
         //    to a single caption-ism — drop it if that's all that's left.
         if isTrailingHallucination(text) {
-            #if DEBUG
-            print("[TranscriptionEngine] Dropped collapsed caption-ism: \"\(text)\"")
-            #endif
+            Log.debug("TranscriptionEngine", "Dropped collapsed caption-ism: \"\(text)\"")
             return ""
         }
         return text
@@ -289,7 +282,7 @@ final class TranscriptionEngine {
     func unloadModel() {
         whisperKit = nil
         isInitialized = false
-        print("[TranscriptionEngine] Model unloaded.")
+        Log.debug("TranscriptionEngine", "Model unloaded.")
     }
     
     // MARK: - Private

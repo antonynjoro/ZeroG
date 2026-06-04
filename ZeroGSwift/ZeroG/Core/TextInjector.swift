@@ -41,10 +41,8 @@ enum TextInjector {
             }
         }
         
-        #if DEBUG
         let preview = text.count > 40 ? String(text.prefix(40)) + "..." : text
-        print("[TextInjector] Injected: '\(preview)' (\(text.count) chars)")
-        #endif
+        Log.debug("TextInjector", "Injected: '\(preview)' (\(text.count) chars)")
     }
     
     // MARK: - Clipboard Snapshot / Restore
@@ -82,9 +80,7 @@ enum TextInjector {
             pasteboard.writeObjects([item])
         }
         
-        #if DEBUG
-        print("[TextInjector] Clipboard restored (\(snapshot.count) items).")
-        #endif
+        Log.debug("TextInjector", "Clipboard restored (\(snapshot.count) items).")
     }
     
     // MARK: - Keyboard Simulation

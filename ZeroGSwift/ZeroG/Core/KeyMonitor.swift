@@ -76,7 +76,7 @@ final class KeyMonitor {
                         let monitor = Unmanaged<KeyMonitor>.fromOpaque(userInfo).takeUnretainedValue()
                         if let tap = monitor.eventTap {
                             CGEvent.tapEnable(tap: tap, enable: true)
-                            print("[KeyMonitor] Event tap re-enabled after system timeout")
+                            Log.debug("KeyMonitor", "Event tap re-enabled after system timeout")
                         }
                     }
                     return Unmanaged.passRetained(event)
@@ -93,8 +93,8 @@ final class KeyMonitor {
         ) else {
             let processName = ProcessInfo.processInfo.processName
             let parentApp = Bundle.main.bundleIdentifier ?? "this app"
-            print("""
-            ⚠️ [KeyMonitor] Failed to create event tap!
+            Log.error("KeyMonitor", """
+            ⚠️ Failed to create event tap!
 
             To fix this, grant Input Monitoring permissions:
               1. Open System Settings → Privacy & Security → Input Monitoring
@@ -124,9 +124,7 @@ final class KeyMonitor {
             object: nil
         )
 
-        #if DEBUG
-        print("[KeyMonitor] Event tap installed. Monitoring \(triggerKey.displayName) key.")
-        #endif
+        Log.debug("KeyMonitor", "Event tap installed. Monitoring \(triggerKey.displayName) key.")
     }
 
     /// Remove the event tap and clean up.
@@ -147,9 +145,7 @@ final class KeyMonitor {
         eventTap = nil
         runLoopSource = nil
 
-        #if DEBUG
-        print("[KeyMonitor] Event tap removed.")
-        #endif
+        Log.debug("KeyMonitor", "Event tap removed.")
     }
 
     // MARK: - Trigger Key Change
@@ -172,9 +168,7 @@ final class KeyMonitor {
             }
         }
 
-        #if DEBUG
-        print("[KeyMonitor] Trigger key changed to \(newKey.displayName)")
-        #endif
+        Log.debug("KeyMonitor", "Trigger key changed to \(newKey.displayName)")
     }
 
     // MARK: - Event Handling
@@ -208,7 +202,7 @@ final class KeyMonitor {
                 DispatchQueue.main.async { [weak self] in
                     self?.stateMachine.useGemini = true
                 }
-                print("[KeyMonitor] ✅ Q pressed during \(triggerKey.displayName) session — Gemini mode activated")
+                Log.debug("KeyMonitor", "✅ Q pressed during \(triggerKey.displayName) session — Gemini mode activated")
             }
         }
     }
@@ -223,7 +217,7 @@ final class KeyMonitor {
             let state = self.stateMachine.currentState
 
             guard state.isReady else {
-                print("[KeyMonitor] Ignoring \(self.triggerKey.displayName) press — app not ready (state: \(state))")
+                Log.debug("KeyMonitor", "Ignoring \(self.triggerKey.displayName) press — app not ready (state: \(state))")
                 return
             }
 
@@ -267,9 +261,7 @@ final class KeyMonitor {
         timeoutTimer = Timer.scheduledTimer(withTimeInterval: maxRecordingDuration, repeats: false) { [weak self] _ in
             guard let self else { return }
 
-            #if DEBUG
-            print("[KeyMonitor] Recording timeout (\(self.maxRecordingDuration)s) — forcing stop.")
-            #endif
+            Log.debug("KeyMonitor", "Recording timeout (\(self.maxRecordingDuration)s) — forcing stop.")
 
             self.isTriggerKeyPressed = false
             let useGemini = self.isQPressedDuringSession

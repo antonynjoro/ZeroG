@@ -60,8 +60,8 @@ final class AppStateMachine: ObservableObject {
         
         let previous = currentState
         currentState = newState
-        
-        print("[StateMachine] \(previous) → \(newState)")
+
+        Log.debug("StateMachine", "\(previous) → \(newState)")
     }
     
     /// Convenience: transition to `.idle` after a delay.

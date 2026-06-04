@@ -79,10 +79,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
                 
                 DispatchQueue.main.async {
                     self.stateMachine.transition(to: .idle)
-                    print("🧑‍🚀 ZeroG Ready — Hold \(Config.triggerKey.displayName) to start recording")
+                    Log.debug("ZeroGApp", "🧑‍🚀 ZeroG Ready — Hold \(Config.triggerKey.displayName) to start recording")
                 }
             } catch {
-                print("⚠️ WhisperKit initialization failed: \(error)")
+                Log.error("ZeroGApp", "⚠️ WhisperKit initialization failed: \(error)")
                 DispatchQueue.main.async {
                     self.stateMachine.transition(to: .error("Model Failed"))
                 }
