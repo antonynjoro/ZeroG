@@ -118,23 +118,11 @@ final class StatusBarController {
         guard let button = statusItem.button else { return }
         
         statusMenuItem.title = state.statusText
-        
-        let symbolName: String
-        switch state {
-        case .loading:
-            symbolName = "arrow.down.circle"
-        case .idle:
-            symbolName = "mic"
-        case .recording:
-            symbolName = "mic.fill"
-        case .processing:
-            symbolName = "waveform.circle"
-        case .success:
-            symbolName = "checkmark.circle"
-        case .error:
-            symbolName = "exclamationmark.triangle"
-        }
-        
+
+        // Menu symbol comes from the single state-presentation source of truth.
+        // The symbol is independent of Gemini mode, so the flag is irrelevant here.
+        let symbolName = state.presentation(useGemini: false).menuSymbol
+
         if let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "ZeroG Status") {
             let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
             let configuredImage = (image.withSymbolConfiguration(config) ?? image).copy() as! NSImage

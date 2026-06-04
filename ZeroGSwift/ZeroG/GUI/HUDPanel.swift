@@ -2,19 +2,9 @@ import SwiftUI
 import Cocoa
 import Combine
 
-// MARK: - HUD State Colors (ZeroG Brand)
-
-private enum HUDColors {
-    static let hudBase = Color(red: 0.067, green: 0.075, blue: 0.102) // #11131A
-    static let border = Color(red: 0.165, green: 0.184, blue: 0.239) // #2A2F3D
-    static let primaryText = Color(red: 0.957, green: 0.937, blue: 0.902) // #F4EFE6
-    static let secondaryText = Color(red: 0.682, green: 0.714, blue: 0.769) // #AEB6C4
-    static let voiceTeal = Color(red: 0.098, green: 0.843, blue: 0.871) // #19D7DE
-    static let orbitAmber = Color(red: 1.0, green: 0.698, blue: 0.247) // #FFB23F
-    static let polishViolet = Color(red: 0.725, green: 0.486, blue: 1.0) // #B97CFF
-    static let successGreen = Color(red: 0.133, green: 0.788, blue: 0.561) // #22C98F
-    static let errorRose = Color(red: 1.0, green: 0.416, blue: 0.478) // #FF6A7A
-}
+// The ZeroG colour palette (`HUDColors`) and the per-state visual descriptor
+// (`StatePresentation` via `AppState.presentation(useGemini:)`) live in
+// Core/StatePresentation.swift — the single source of truth this view reads.
 
 // MARK: - HUD SwiftUI View
 
@@ -71,7 +61,22 @@ struct HUDContentView: View {
             processingPulse = 1
         }
     }
-    
+
+    /// Per-state visual descriptor — the single source of truth (Core/StatePresentation.swift).
+    private var presentation: StatePresentation {
+        stateMachine.currentState.presentation(useGemini: stateMachine.useGemini)
+    }
+
+    /// Scale applied to the icon. Animation-driven, so it stays in the view layer
+    /// rather than the static descriptor: recording tracks audio glow, processing pulses.
+    private var iconScale: CGFloat {
+        switch stateMachine.currentState {
+        case .recording: return recordingIconScale
+        case .processing: return processingIconScale
+        default: return 1.0
+        }
+    }
+
     private var shadowIntensity: CGFloat {
         switch stateMachine.currentState {
         case .processing:
@@ -94,100 +99,40 @@ struct HUDContentView: View {
     @ViewBuilder
     private var iconView: some View {
         ZStack {
-            switch stateMachine.currentState {
-            case .recording:
-                HUDIconImage(name: stateMachine.useGemini ? "hud-polish" : "hud-recording")
-                    .frame(width: 42, height: 42)
-                    .scaleEffect(recordingIconScale)
-                
-            case .processing:
-                HUDIconImage(name: stateMachine.useGemini ? "hud-polish" : "hud-processing")
-                    .frame(width: 40, height: 40)
-                    .scaleEffect(processingIconScale)
-                
-            case .success:
-                HUDIconImage(name: "hud-success")
-                    .frame(width: 36, height: 36)
-                
-            case .error:
-                HUDIconImage(name: "hud-error")
-                    .frame(width: 36, height: 36)
-                
-            case .idle, .loading:
-                EmptyView()
+            if let name = presentation.hudIconName {
+                HUDIconImage(name: name)
+                    .frame(width: presentation.iconSize, height: presentation.iconSize)
+                    .scaleEffect(iconScale)
             }
         }
     }
-    
+
     // MARK: - Labels View
-    
+
     @ViewBuilder
     private var labelsView: some View {
         VStack(alignment: .leading, spacing: 2) {
-            switch stateMachine.currentState {
-            case .recording:
-                Text("ZeroG")
+            if let title = presentation.hudTitle {
+                Text(title)
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .foregroundColor(HUDColors.secondaryText)
+                    .foregroundColor(presentation.titleColor)
                     .textCase(.uppercase)
-                
-                Text("RECORDING...")
+            }
+
+            if let status = presentation.hudStatus {
+                Text(status)
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundColor(HUDColors.voiceTeal)
-                
-            case .processing:
-                Text("ZeroG")
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .foregroundColor(HUDColors.secondaryText)
-                    .textCase(.uppercase)
-                
-                Text("TRANSCRIBING...")
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundColor(HUDColors.primaryText)
-                
-            case .success:
-                Text("DONE ✓")
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundColor(HUDColors.successGreen)
-                
-            case .error(let message):
-                Text("ERROR")
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .foregroundColor(HUDColors.errorRose.opacity(0.8))
-                    .textCase(.uppercase)
-                
-                Text(message.uppercased())
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundColor(HUDColors.primaryText)
+                    .foregroundColor(presentation.statusColor)
                     .lineLimit(1)
-                
-            case .idle, .loading:
-                EmptyView()
             }
         }
     }
-    
+
     // MARK: - Computed Properties
-    
-    private var borderColor: Color {
-        switch stateMachine.currentState {
-        case .recording: return HUDColors.voiceTeal.opacity(0.32)
-        case .processing: return (stateMachine.useGemini ? HUDColors.polishViolet : HUDColors.orbitAmber).opacity(0.28)
-        case .success: return HUDColors.successGreen.opacity(0.3)
-        case .error: return HUDColors.errorRose.opacity(0.34)
-        case .idle, .loading: return HUDColors.border
-        }
-    }
-    
-    private var glowColor: Color {
-        switch stateMachine.currentState {
-        case .recording: return HUDColors.voiceTeal
-        case .processing: return stateMachine.useGemini ? HUDColors.polishViolet : HUDColors.orbitAmber
-        case .success: return HUDColors.successGreen
-        case .error: return HUDColors.errorRose
-        case .idle, .loading: return .clear
-        }
-    }
+
+    private var borderColor: Color { presentation.borderColor }
+
+    private var glowColor: Color { presentation.glowColor }
 }
 
 private struct HUDIconImage: View {
