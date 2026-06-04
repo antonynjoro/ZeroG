@@ -8,7 +8,7 @@ struct ConfigTests {
     func defaultConstants() {
         #expect(Config.silenceThreshold == 0.003)
         #expect(Config.silenceDuration == 12.0)
-        #expect(Config.recordingTailDuration == 0.5)
+        #expect(Config.recordingTailDuration == 0.3)
         #expect(Config.whisperModel == "large-v3-v20240930_turbo")
     }
 

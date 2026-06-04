@@ -34,8 +34,11 @@ final class TranscriptionEngine {
     /// Serial queue to protect WhisperKit access.
     private let transcriptionQueue = DispatchQueue(label: "com.zerog.transcription", qos: .userInitiated)
 
-    /// Decoding options tuned for low latency: English-only, no language detection probe,
-    /// no temperature fallback retries, VAD chunking to skip silent regions.
+    /// Decoding options tuned for low latency: English-only, no language detection probe.
+    /// Chunking is disabled (.none) — VAD chunking only ever activated above one 30s
+    /// window and gave long recordings isolated chunks prone to boundary truncation and
+    /// tail hallucination. Trailing-silence hallucinations are handled post-decode in
+    /// `cleanTranscript`, not by audio-side gating.
     // internal so tests can assert these values don't regress
     static let fastDecodingOptions = DecodingOptions(
         task: .transcribe,
@@ -49,7 +52,7 @@ final class TranscriptionEngine {
         compressionRatioThreshold: 2.4,
         logProbThreshold: -1.0,
         noSpeechThreshold: 0.6,
-        chunkingStrategy: .vad
+        chunkingStrategy: ChunkingStrategy.none
     )
     
     /// Callback for status updates during initialization (download progress, model loading phases).
@@ -160,13 +163,126 @@ final class TranscriptionEngine {
         }
         
         let results = try await kit.transcribe(audioArray: audioArray, decodeOptions: Self.fastDecodingOptions)
-        
-        let text = results
-            .compactMap { $0.text }
-            .joined(separator: " ")
+
+        // Flatten WhisperKit segments into our decoupled adapter type, preserving the
+        // per-segment confidence the cleanup pass needs (and the base API discards).
+        let segments = results.flatMap { $0.segments }.map {
+            DecodedSegment(text: $0.text, noSpeechProb: $0.noSpeechProb, avgLogprob: $0.avgLogprob)
+        }
+
+        return Self.cleanTranscript(segments)
+    }
+
+    // MARK: - Transcript cleanup
+
+    /// Decoupled view of a WhisperKit segment carrying only what the cleanup pass needs.
+    /// Keeps `cleanTranscript` testable without constructing full `TranscriptionSegment`s.
+    struct DecodedSegment {
+        let text: String
+        let noSpeechProb: Float
+        let avgLogprob: Float
+    }
+
+    /// Strip trailing-silence hallucinations ("thank you thank you…") from a decoded
+    /// transcript without touching real speech. Operates in the text domain so audio can
+    /// stay generous (no word clipping). Order matters:
+    ///   a. Drop trailing segments the model itself flags as silence (high noSpeechProb).
+    ///   b. Backstop: drop a standalone final segment that's exactly a known caption-ism.
+    ///   c. Collapse pathological repeated phrase-runs ("thank you thank you thank you").
+    ///   d. Final backstop: if the whole thing collapsed down to a lone caption-ism, drop it.
+    /// internal so tests can drive it directly.
+    static func cleanTranscript(_ segments: [DecodedSegment]) -> String {
+        let drop = Config.TranscriptionQuality.trailingNoSpeechDrop
+
+        // a. Drop silence-origin trailing segments (primary signal). Walk from the end and
+        //    stop at the first segment that looks like real speech.
+        var kept = segments
+        while let last = kept.last,
+              !last.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              last.noSpeechProb >= drop {
+            #if DEBUG
+            print("[TranscriptionEngine] Dropped trailing hallucination (noSpeechProb=\(String(format: "%.2f", last.noSpeechProb)), avgLogprob=\(String(format: "%.2f", last.avgLogprob))): \"\(last.text)\"")
+            #endif
+            kept.removeLast()
+        }
+
+        // b. Backstop: a surviving standalone final segment that's exactly a caption-ism.
+        if let last = kept.last, isTrailingHallucination(last.text) {
+            #if DEBUG
+            print("[TranscriptionEngine] Dropped trailing caption-ism (backstop): \"\(last.text)\"")
+            #endif
+            kept.removeLast()
+        }
+
+        // c. Collapse repeated phrase-runs on the joined text, then normalize whitespace.
+        let joined = kept.map { $0.text }.joined(separator: " ")
+        let text = collapseRepetitions(joined)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        
+
+        // d. After collapsing, a repeated run like "thank you thank you thank you" reduces
+        //    to a single caption-ism — drop it if that's all that's left.
+        if isTrailingHallucination(text) {
+            #if DEBUG
+            print("[TranscriptionEngine] Dropped collapsed caption-ism: \"\(text)\"")
+            #endif
+            return ""
+        }
         return text
+    }
+
+    /// True if `text`, normalized (lowercased, surrounding whitespace and trailing
+    /// punctuation stripped), exactly matches a known caption-ism. Exact-match only —
+    /// never substring — so "thank you for the report" is untouched.
+    private static func isTrailingHallucination(_ text: String) -> Bool {
+        let normalized = text
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .trimmingCharacters(in: CharacterSet(charactersIn: ".,!?;:"))
+            .trimmingCharacters(in: .whitespaces)
+        return Config.TranscriptionQuality.trailingHallucinations.contains(normalized)
+    }
+
+    /// Collapse any run where a short phrase (1–3 words) repeats 3+ times consecutively
+    /// down to a single instance. Targets "thank you thank you thank you"; real speech
+    /// rarely repeats a phrase 3×+ back-to-back. Case/punctuation-insensitive on the match.
+    static func collapseRepetitions(_ text: String) -> String {
+        let words = text.split(separator: " ").map(String.init)
+        guard words.count >= 2 else { return text }
+
+        func norm(_ s: String) -> String {
+            s.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ".,!?;:"))
+        }
+
+        var result: [String] = []
+        var i = 0
+        while i < words.count {
+            var collapsed = false
+            // Try longer phrases first so "very good very good very good" collapses as a
+            // 2-word unit rather than mis-collapsing on single "very".
+            for phraseLen in stride(from: 3, through: 1, by: -1) {
+                guard i + phraseLen <= words.count else { continue }
+                let phrase = Array(words[i..<i + phraseLen]).map(norm)
+                var reps = 1
+                var j = i + phraseLen
+                while j + phraseLen <= words.count,
+                      Array(words[j..<j + phraseLen]).map(norm) == phrase {
+                    reps += 1
+                    j += phraseLen
+                }
+                if reps >= 3 {
+                    // Keep one instance (original casing/punctuation), skip the rest.
+                    result.append(contentsOf: words[i..<i + phraseLen])
+                    i = j
+                    collapsed = true
+                    break
+                }
+            }
+            if !collapsed {
+                result.append(words[i])
+                i += 1
+            }
+        }
+        return result.joined(separator: " ")
     }
     
     /// Unload the model to free memory.

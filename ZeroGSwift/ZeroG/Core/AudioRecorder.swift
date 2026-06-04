@@ -134,7 +134,9 @@ final class AudioRecorder: @unchecked Sendable {
 
         let sampleRate = Int(AudioConstants.sampleRate)
         let windowSize = sampleRate / 50      // 20 ms windows = 320 samples @ 16 kHz
-        let tailKeep = sampleRate / 5          // keep up to 200 ms of trailing silence
+        // Keep trailing silence so the decoder finalizes the last word; the post-decode
+        // cleanup pass absorbs any silence that turns into a hallucination.
+        let tailKeep = Int(Double(sampleRate) * Config.TranscriptionQuality.trailingTailSeconds)
         guard samples.count > windowSize else { return samples }
 
         var lastVoicedEnd = 0

@@ -28,16 +28,19 @@ enum Config {
     }
     
     // MARK: Audio
-    
+
     /// Safety-only silence threshold (RMS amplitude below which is considered true silence).
+    /// Interacts with the trailing-audio knobs — see `TranscriptionQuality`.
     static let silenceThreshold: Float = 0.003
 
     /// Seconds of continuous true silence before auto-stop.
+    /// Interacts with the trailing-audio knobs — see `TranscriptionQuality`.
     static let silenceDuration: TimeInterval = 12.0
 
     /// Seconds to keep recording after key release to capture trailing speech.
-    static let recordingTailDuration: TimeInterval = 0.5
-    
+    /// Sourced from `TranscriptionQuality.recordingTailSeconds`.
+    static let recordingTailDuration: TimeInterval = TranscriptionQuality.recordingTailSeconds
+
     // MARK: Trigger Key
 
     private static let triggerKeyDefaultsKey = "TriggerKeyID"
@@ -56,7 +59,35 @@ enum Config {
 
     /// The WhisperKit model variant to use.
     static let whisperModel: String = "large-v3-v20240930_turbo"
-    
+
+    // MARK: Transcription Quality
+
+    /// All transcription quality / anti-hallucination tuning in one place.
+    /// These knobs interact — change them together here, not scattered across
+    /// AudioRecorder and TranscriptionEngine (which is what caused past flip-flops).
+    enum TranscriptionQuality {
+        /// A trailing segment whose WhisperKit `noSpeechProb` exceeds this is
+        /// treated as a silence hallucination and dropped. Real spoken endings
+        /// sit well below; tail caption-isms ("thank you") sit well above.
+        static let trailingNoSpeechDrop: Float = 0.5
+
+        /// Caption-isms WhisperKit emits on silence. Secondary backstop only —
+        /// matched exact-after-normalization (lowercased, trailing punctuation
+        /// stripped) against the final segment, never substring-matched.
+        static let trailingHallucinations: Set<String> = [
+            "thank you", "thanks for watching", "please subscribe", "you", "bye"
+        ]
+
+        /// Of the captured audio, how much trailing silence to keep so the
+        /// decoder cleanly finalizes the last word. No latency cost (array slice).
+        static let trailingTailSeconds: Double = 0.3
+
+        /// Dead time the app keeps recording after key release before
+        /// transcribing. User-perceived latency — keep as low as last-word
+        /// capture allows. Lower = snappier but risks clipping a quiet final word.
+        static let recordingTailSeconds: Double = 0.3
+    }
+
 }
 
 extension Notification.Name {
