@@ -52,8 +52,8 @@ Store the credentials once in the Keychain under a named profile:
 
 ```bash
 xcrun notarytool store-credentials "zerog-notary" \
-    --apple-id "antonynjoro@gmail.com" \
-    --team-id "YOURTEAMID" \
+    --apple-id "<your-apple-id-email>" \
+    --team-id "<your-team-id>" \
     --password "abcd-efgh-ijkl-mnop"   # the app-specific password
 ```
 
