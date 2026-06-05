@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Key Documents
 
 - [`docs/app-store-readiness-audit.md`](docs/app-store-readiness-audit.md) — Full audit of App Store compliance, production readiness, and maintainability (2026-05-03). Contains the prioritised fix checklist and the rationale for direct-download distribution over Mac App Store submission.
+- [`docs/distribution-signing.md`](docs/distribution-signing.md) — How to sign (Developer ID) and notarize ZeroG for direct download. One-time cert/credential setup plus the `build_app.sh` env-var build modes.
 
 ## After Making Changes
 

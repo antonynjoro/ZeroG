@@ -48,6 +48,9 @@
     
     <key>NSAppleEventsUsageDescription</key>
     <string>ZeroG needs automation access to paste transcribed text into your applications.</string>
+
+    <key>NSInputMonitoringUsageDescription</key>
+    <string>ZeroG monitors your trigger key (e.g. Control) to know when to start and stop recording.</string>
     
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
