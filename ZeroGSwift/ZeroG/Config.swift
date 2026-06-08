@@ -113,11 +113,12 @@ enum Config {
     private static let sttBackendDefaultsKey = "STTBackend"
 
     /// The active STT backend. UserDefaults wins over the environment; falls back to
-    /// `.whisper` (the shipping default) when unset or unrecognized.
+    /// `.parakeetV3` — the chosen engine (decision 2026-06-07). Whisper remains selectable
+    /// only until the Whisper engine is removed; see docs/spikes/fluidaudio-parakeet-spike.md.
     static var sttBackend: STTBackend {
         let raw = UserDefaults.standard.string(forKey: sttBackendDefaultsKey)
             ?? ProcessInfo.processInfo.environment[sttBackendDefaultsKey]
-        return raw.flatMap(STTBackend.init(rawValue:)) ?? .whisper
+        return raw.flatMap(STTBackend.init(rawValue:)) ?? .parakeetV3
     }
 
     /// Persist the selected STT backend (used by the spike's menu-bar toggle).

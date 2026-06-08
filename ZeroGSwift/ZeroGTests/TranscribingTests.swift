@@ -63,13 +63,13 @@ struct TranscribingTests {
 struct STTBackendSelectionTests {
     private static let key = "STTBackend"
 
-    @Test("sttBackend defaults to .whisper when no preference is set")
-    func defaultsToWhisper() {
+    @Test("sttBackend defaults to .parakeetV3 when no preference is set")
+    func defaultsToParakeetV3() {
         let prior = UserDefaults.standard.string(forKey: Self.key)
         defer { UserDefaults.standard.set(prior, forKey: Self.key) }
 
         UserDefaults.standard.removeObject(forKey: Self.key)
-        #expect(Config.sttBackend == .whisper)
+        #expect(Config.sttBackend == .parakeetV3)
     }
 
     @Test("sttBackend reads a stored Parakeet preference")
@@ -81,12 +81,12 @@ struct STTBackendSelectionTests {
         #expect(Config.sttBackend == .parakeetV3)
     }
 
-    @Test("An unrecognized stored value falls back to .whisper")
+    @Test("An unrecognized stored value falls back to .parakeetV3")
     func unrecognizedFallsBack() {
         let prior = UserDefaults.standard.string(forKey: Self.key)
         defer { UserDefaults.standard.set(prior, forKey: Self.key) }
 
         UserDefaults.standard.set("garbage", forKey: Self.key)
-        #expect(Config.sttBackend == .whisper)
+        #expect(Config.sttBackend == .parakeetV3)
     }
 }

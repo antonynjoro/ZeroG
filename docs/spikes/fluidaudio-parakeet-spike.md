@@ -9,6 +9,7 @@
 |------|-------|------|
 | 2026-06-07 | in-progress | Branch + doc created. Swift 6.3.2 preflight passed. Scaffolding underway. |
 | 2026-06-07 | blocked (handoff) | All spike code landed (engine, factory, comparator, menu, tests). Build + 58 tests green; unsigned .app built. BLOCKED on user voice recordings — measurement cannot proceed without them. |
+| 2026-06-07 | decided (adopt) | User judged both Parakeet variants fine on their voice. DECISION: adopt **Parakeet v3** as the single engine; remove the picker AND WhisperKit entirely. Decided on qualitative feel (no WER numbers captured). Live default flipped to v3 for a real-world soak; Whisper deletion staged as a follow-up after soak. |
 
 States: `not-started` / `in-progress` / `blocked` / `decided`.
 
@@ -85,6 +86,16 @@ Test script per clip type. Reference = ground-truth of what was actually said.
   latency, logs to `~/zerog-backend-comparison.log`). Menu: "STT Backend (spike)" submenu +
   "Compare STT Backends". 17 new tests; full suite 58 green; unsigned `.app` builds. Whisper
   remains the default. **Next: user records the script; run Compare; fill the findings table.**
+- **2026-06-07** — DECISION (adopt, single engine). User tested both Parakeet variants live and
+  judged them fine. Chose **Parakeet v3** (highest coverage — 25 languages, broadest training,
+  better bet for Kenyan accent; FluidAudio's own default) over v2 (English-only, marginally lower
+  clean-English WER on a distribution that isn't ours). Chose to remove the picker AND WhisperKit
+  entirely (leanest: one engine, one dep, no config surface) rather than keep a DEBUG-gated picker.
+  Tradeoff accepted: decided on qualitative feel, no WER numbers captured. Disfluencies ("um"/"ah")
+  are kept verbatim by Parakeet — user OK with that; strip later in the text domain or via the
+  existing Gemini polish if wanted, NOT by model choice. **Staging:** live default flipped to v3
+  now for a real-world soak; Whisper + cleanup stack + picker + comparator + WERCalculator deletion
+  is the next step, after the soak confirms v3 holds up in daily push-to-talk use.
 
 ## Open questions / next-session pickup
 
