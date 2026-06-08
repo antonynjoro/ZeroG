@@ -10,6 +10,7 @@
 | 2026-06-07 | in-progress | Branch + doc created. Swift 6.3.2 preflight passed. Scaffolding underway. |
 | 2026-06-07 | blocked (handoff) | All spike code landed (engine, factory, comparator, menu, tests). Build + 58 tests green; unsigned .app built. BLOCKED on user voice recordings — measurement cannot proceed without them. |
 | 2026-06-07 | decided (adopt) | User judged both Parakeet variants fine on their voice. DECISION: adopt **Parakeet v3** as the single engine; remove the picker AND WhisperKit entirely. Decided on qualitative feel (no WER numbers captured). Live default flipped to v3 for a real-world soak; Whisper deletion staged as a follow-up after soak. |
+| 2026-06-07 | soaking (v3 default) | Running live on v3 as default. User reports it "feels like it's going pretty well" in real push-to-talk use; **soak ongoing — not yet greenlit for Whisper deletion**. All work committed on branch `spike/fluidaudio-parakeet` (6 commits), NOT pushed. |
 
 States: `not-started` / `in-progress` / `blocked` / `decided`.
 
@@ -99,9 +100,35 @@ Test script per clip type. Reference = ground-truth of what was actually said.
 
 ## Open questions / next-session pickup
 
-- Verify exact FluidAudio ASR API against the resolved checkout before writing the wrapper
-  (`AsrModels` / `AsrManager` / result text property — plan snippets are guesses).
-- Confirm Parakeet v2 vs v3 variant identifiers in FluidAudio.
-- Measurement is a HANDOFF: needs the user's voice recordings — cannot be done by the model.
-- If adopted later: delete Whisper engine + cleanup stack + `TranscriptionQuality`, drop
-  WhisperKit dep, re-notarize, and seed the still-open audio-fixture regression harness.
+**RESUME HERE (as of 2026-06-07):** Decision is made — adopt **Parakeet v3**, single engine,
+no picker. App's live default is already v3. User is **soaking** (daily push-to-talk on v3);
+early feel is positive. Branch `spike/fluidaudio-parakeet`, 6 commits, **not pushed**, working
+tree clean.
+
+**Next action, once the user greenlights after the soak — the staged Whisper-removal cleanup
+(one commit):**
+1. Delete `TranscriptionEngine.swift` (Whisper) + its hallucination-cleanup stack
+   (`cleanTranscript`, `collapseRepetitions`, `isTrailingHallucination`) and
+   `TranscriptionEngineTests.swift`.
+2. Delete the picker: `Config.STTBackend` enum + `sttBackend`/`setSTTBackend`,
+   `Config.whisperModel`, `Config.TranscriptionQuality`; the "STT Backend (spike)" submenu +
+   `backendSelected` + the "Compare STT Backends" item + `runBackendComparison` in
+   `StatusBarController`/`AppDelegate`.
+3. Delete `BackendComparator.swift`, `WERCalculator.swift`, `WERCalculatorTests.swift`, and the
+   `onCapturedAudio` hook in `AudioRecorder` + `lastCapturedBuffer` in `AppDelegate`.
+4. Make Parakeet the only engine: either keep the `Transcribing` protocol with
+   `ParakeetTranscriptionEngine` as sole conformer (cheap, future-proof) OR collapse the protocol
+   and rename `ParakeetTranscriptionEngine` → `TranscriptionEngine`. Update `TranscribingTests`
+   (`MockTranscriber`) accordingly.
+5. Drop the WhisperKit dependency from `Package.swift`; `swift package resolve`.
+6. `swift test` green → `./build_app.sh` → then re-notarize for a release candidate.
+
+**Other follow-ups:**
+- Disfluencies ("um"/"ah") kept verbatim by Parakeet — user OK so far. If stripping wanted: do it
+  in the text domain (deterministic list) or via the existing Gemini polish, NOT by model choice.
+- Capture real WER numbers via `~/zerog-backend-comparison.log` if you ever want the decision
+  data-backed (currently decided on feel).
+- Note: this removes the WhisperKit model-download timeout/retry audit blocker by removing Whisper;
+  Parakeet has its own download retry already.
+- Revisit the still-open audio-fixture regression harness (record WAVs + golden transcripts) now
+  that the engine is changing.
