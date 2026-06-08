@@ -8,6 +8,7 @@
 | Date | State | Note |
 |------|-------|------|
 | 2026-06-07 | in-progress | Branch + doc created. Swift 6.3.2 preflight passed. Scaffolding underway. |
+| 2026-06-07 | blocked (handoff) | All spike code landed (engine, factory, comparator, menu, tests). Build + 58 tests green; unsigned .app built. BLOCKED on user voice recordings — measurement cannot proceed without them. |
 
 States: `not-started` / `in-progress` / `blocked` / `decided`.
 
@@ -76,6 +77,14 @@ Test script per clip type. Reference = ground-truth of what was actually said.
 - **2026-06-07** — Spike opened. Plan approved. Whisper-vs-Parakeet research: Parakeet ~110–300×
   RTFx, ~66 MB, transducer (low hallucination risk), macOS 14 min, Apache 2.0. Accent accuracy
   is the open question. Branch + doc created; preflight Swift 6.3.2 OK.
+- **2026-06-07** — Code complete. Added `Transcribing` protocol (Whisper conforms, unchanged),
+  `ParakeetTranscriptionEngine` (FluidAudio 0.15.2 — `AsrModels.downloadAndLoad(version:)`,
+  `AsrManager(config:models:)`, `transcribe(_:decoderState:) -> ASRResult`; v2/v3; no cleanup
+  pass), `Config.STTBackend` + launch-time factory (only selected backend loads), `WERCalculator`
+  (pure Levenshtein), and `BackendComparator` (same buffer → all 3 backends, cold/warm-median
+  latency, logs to `~/zerog-backend-comparison.log`). Menu: "STT Backend (spike)" submenu +
+  "Compare STT Backends". 17 new tests; full suite 58 green; unsigned `.app` builds. Whisper
+  remains the default. **Next: user records the script; run Compare; fill the findings table.**
 
 ## Open questions / next-session pickup
 
