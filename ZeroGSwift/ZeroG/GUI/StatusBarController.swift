@@ -13,17 +13,22 @@ final class StatusBarController {
     private var copyTranscriptionMenuItem: NSMenuItem!
     private var geminiMenuItem: NSMenuItem!
     private var triggerKeySubmenu: NSMenu!
+    private var backendSubmenu: NSMenu!
     private var cancellables = Set<AnyCancellable>()
-    
+
     // MARK: Dependencies
-    
+
     private let stateMachine: AppStateMachine
-    
+
+    /// SPIKE (spike/fluidaudio-parakeet): invoked by the "Compare STT backends" menu item.
+    private let onRunBackendComparison: () -> Void
+
     // MARK: Initialization
-    
-    init(stateMachine: AppStateMachine) {
+
+    init(stateMachine: AppStateMachine, onRunBackendComparison: @escaping () -> Void = {}) {
         self.stateMachine = stateMachine
-        
+        self.onRunBackendComparison = onRunBackendComparison
+
         setupStatusItem()
         observeState()
     }
@@ -67,6 +72,35 @@ final class StatusBarController {
         }
         triggerKeyItem.submenu = triggerKeySubmenu
         menu.addItem(triggerKeyItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        // SPIKE (spike/fluidaudio-parakeet): STT backend selector + comparison runner.
+        let backendItem = NSMenuItem(title: "STT Backend (spike)", action: nil, keyEquivalent: "")
+        backendSubmenu = NSMenu()
+        let currentBackend = Config.sttBackend
+        let backends: [(Config.STTBackend, String)] = [
+            (.whisper, "WhisperKit (default)"),
+            (.parakeetV2, "Parakeet v2 (English)"),
+            (.parakeetV3, "Parakeet v3 (multilingual)"),
+        ]
+        for (backend, title) in backends {
+            let item = NSMenuItem(title: title, action: #selector(backendSelected(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = backend.rawValue
+            item.state = (backend == currentBackend) ? .on : .off
+            backendSubmenu.addItem(item)
+        }
+        backendItem.submenu = backendSubmenu
+        menu.addItem(backendItem)
+
+        let compareItem = NSMenuItem(
+            title: "Compare STT Backends (last recording)",
+            action: #selector(runBackendComparison),
+            keyEquivalent: ""
+        )
+        compareItem.target = self
+        menu.addItem(compareItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -142,6 +176,30 @@ final class StatusBarController {
         for item in triggerKeySubmenu.items {
             item.state = (item.representedObject as? String) == id ? .on : .off
         }
+    }
+
+    // MARK: - STT Backend Selection (spike)
+
+    @objc private func backendSelected(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let backend = Config.STTBackend(rawValue: raw) else { return }
+        Config.setSTTBackend(backend)
+
+        for item in backendSubmenu.items {
+            item.state = (item.representedObject as? String) == raw ? .on : .off
+        }
+
+        // The live engine is built once at launch, so a switch needs a relaunch to take effect.
+        let alert = NSAlert()
+        alert.messageText = "Backend set to \(backend.rawValue)"
+        alert.informativeText = "Quit and relaunch ZeroG for the new backend to take effect.\n\n(The \"Compare STT Backends\" item runs all backends on your last recording without relaunching.)"
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    @objc private func runBackendComparison() {
+        onRunBackendComparison()
     }
 
     // MARK: - Gemini Key Dialog

@@ -29,7 +29,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     
     private var statusBarController: StatusBarController!
     private var hudController: HUDPanelController!
-    
+
+    /// SPIKE (spike/fluidaudio-parakeet): the most recent captured audio buffer, fed to the
+    /// backend comparator so every engine sees identical audio.
+    private var lastCapturedBuffer: [Float] = []
+
     // MARK: Application Lifecycle
     
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -40,12 +44,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         
         // Initialize core
         stateMachine = AppStateMachine()
-        transcriptionEngine = TranscriptionEngine()
-        
+        transcriptionEngine = Self.makeTranscriptionEngine(for: Config.sttBackend)
+        Log.debug("ZeroGApp", "STT backend: \(Config.sttBackend.rawValue)")
+
         audioRecorder = AudioRecorder(
             stateMachine: stateMachine,
             transcriptionEngine: transcriptionEngine
         )
+
+        // SPIKE: remember the last buffer so the backend comparator can re-run it.
+        audioRecorder.onCapturedAudio = { [weak self] buffer in
+            self?.lastCapturedBuffer = buffer
+        }
         
         keyMonitor = KeyMonitor(
             stateMachine: stateMachine,
@@ -58,7 +68,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         )
         
         // Initialize GUI
-        statusBarController = StatusBarController(stateMachine: stateMachine)
+        statusBarController = StatusBarController(
+            stateMachine: stateMachine,
+            onRunBackendComparison: { [weak self] in self?.runBackendComparison() }
+        )
         hudController = HUDPanelController(stateMachine: stateMachine)
         
         // Start key monitoring
@@ -92,5 +105,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     
     func applicationWillTerminate(_ notification: Notification) {
         keyMonitor?.stop()
+    }
+
+    // MARK: - STT backend (FluidAudio spike)
+
+    /// Build the live transcription engine for the selected backend. Only the chosen one is
+    /// instantiated, so we never load Whisper and Parakeet models at the same time.
+    private static func makeTranscriptionEngine(for backend: Config.STTBackend) -> Transcribing {
+        switch backend {
+        case .whisper:    return TranscriptionEngine()
+        case .parakeetV2: return ParakeetTranscriptionEngine(variant: .v2)
+        case .parakeetV3: return ParakeetTranscriptionEngine(variant: .v3)
+        }
+    }
+
+    /// SPIKE: run the last captured recording through every backend and log the comparison.
+    private func runBackendComparison() {
+        let buffer = lastCapturedBuffer
+        Task.detached {
+            await BackendComparator.compare(buffer: buffer)
+        }
     }
 }
