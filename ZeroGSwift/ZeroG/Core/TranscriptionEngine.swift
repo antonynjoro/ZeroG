@@ -20,7 +20,7 @@ enum TranscriptionError: LocalizedError {
 // MARK: - Transcription Engine
 
 /// Wraps WhisperKit for on-device speech-to-text using Apple Silicon Neural Engine.
-final class TranscriptionEngine {
+final class TranscriptionEngine: Transcribing {
     
     // MARK: Configuration
     

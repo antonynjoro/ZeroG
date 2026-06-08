@@ -31,7 +31,7 @@ final class AudioRecorder: @unchecked Sendable {
     // MARK: Dependencies
     
     private let stateMachine: AppStateMachine
-    private let transcriptionEngine: TranscriptionEngine
+    private let transcriptionEngine: Transcribing
     
     // MARK: Audio Engine
     
@@ -57,7 +57,7 @@ final class AudioRecorder: @unchecked Sendable {
     
     // MARK: Lifecycle
     
-    init(stateMachine: AppStateMachine, transcriptionEngine: TranscriptionEngine) {
+    init(stateMachine: AppStateMachine, transcriptionEngine: Transcribing) {
         self.stateMachine = stateMachine
         self.transcriptionEngine = transcriptionEngine
     }

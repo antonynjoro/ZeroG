@@ -98,6 +98,33 @@ enum Config {
     /// The WhisperKit model variant to use.
     static let whisperModel: String = "large-v3-v20240930_turbo"
 
+    // MARK: STT Backend (FluidAudio/Parakeet spike)
+
+    /// Selectable speech-to-text backend. Spike-only knob (`spike/fluidaudio-parakeet`):
+    /// lets us A/B WhisperKit against FluidAudio's Parakeet on the same audio.
+    /// See docs/spikes/fluidaudio-parakeet-spike.md.
+    enum STTBackend: String {
+        case whisper
+        case parakeetV2
+        case parakeetV3
+    }
+
+    /// UserDefaults / environment key for the selected STT backend.
+    private static let sttBackendDefaultsKey = "STTBackend"
+
+    /// The active STT backend. UserDefaults wins over the environment; falls back to
+    /// `.whisper` (the shipping default) when unset or unrecognized.
+    static var sttBackend: STTBackend {
+        let raw = UserDefaults.standard.string(forKey: sttBackendDefaultsKey)
+            ?? ProcessInfo.processInfo.environment[sttBackendDefaultsKey]
+        return raw.flatMap(STTBackend.init(rawValue:)) ?? .whisper
+    }
+
+    /// Persist the selected STT backend (used by the spike's menu-bar toggle).
+    static func setSTTBackend(_ backend: STTBackend) {
+        UserDefaults.standard.set(backend.rawValue, forKey: sttBackendDefaultsKey)
+    }
+
     // MARK: Transcription Quality
 
     /// All transcription quality / anti-hallucination tuning in one place.

@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     // MARK: Core Components
     
     private var stateMachine: AppStateMachine!
-    private var transcriptionEngine: TranscriptionEngine!
+    private var transcriptionEngine: Transcribing!
     private var audioRecorder: AudioRecorder!
     private var keyMonitor: KeyMonitor!
     
