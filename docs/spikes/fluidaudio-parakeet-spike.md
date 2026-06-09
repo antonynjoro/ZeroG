@@ -13,6 +13,7 @@
 | 2026-06-07 | soaking (v3 default) | Running live on v3 as default. User reports it "feels like it's going pretty well" in real push-to-talk use; **soak ongoing — not yet greenlit for Whisper deletion**. All work committed on branch `spike/fluidaudio-parakeet` (6 commits), NOT pushed. |
 | 2026-06-09 | soaking — ⚠️ findings | Two soak findings: (1) v3 keeps "um"/"uh" verbatim — user now wants them cleaned (Whisper did this inherently). (2) **Word misrecognition observed in real dictation: "sentences" → "sentises"** — this is rubric criterion #1 (accent-word accuracy ≤ Whisper) territory. One word ≠ verdict, but Whisper deletion stays blocked until accuracy is compared on the problem words. |
 | 2026-06-09 | soaking + filler filter | `DisfluencyFilter` added (user greenlit): bounded text-domain pass on Parakeet output only — whole-token match against a fixed filler list, repairs capital/terminal-punctuation seams it creates, cannot misspell/reorder/invent. 11 tests; suite 69 green. Soak continues with cleaned output. Misrecognition concern still open. |
+| 2026-06-09 | soaking — ✅ positive | First post-filter real dictation: long multi-sentence paragraph, zero fillers in output, clean punctuation, no misrecognitions. User: "It did a great job." Soak trending toward greenlight; keep watching for accent fumbles. |
 
 States: `not-started` / `in-progress` / `blocked` / `decided`.
 
