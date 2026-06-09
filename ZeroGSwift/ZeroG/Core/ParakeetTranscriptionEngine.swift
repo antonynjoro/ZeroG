@@ -90,7 +90,10 @@ final class ParakeetTranscriptionEngine: Transcribing {
         // Fresh decoder state per push-to-talk utterance (no cross-utterance carryover).
         var state = try TdtDecoderState(decoderLayers: models.version.decoderLayers)
         let result = try await manager.transcribe(audioArray, decoderState: &state)
-        return result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Parakeet is verbatim by training ("um"/"uh" kept); strip fillers in the text
+        // domain. Whisper needs no equivalent — its caption-trained decoder self-cleans.
+        return DisfluencyFilter.clean(result.text)
     }
 
     // MARK: Teardown

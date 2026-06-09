@@ -12,6 +12,7 @@
 | 2026-06-07 | decided (adopt) | User judged both Parakeet variants fine on their voice. DECISION: adopt **Parakeet v3** as the single engine; remove the picker AND WhisperKit entirely. Decided on qualitative feel (no WER numbers captured). Live default flipped to v3 for a real-world soak; Whisper deletion staged as a follow-up after soak. |
 | 2026-06-07 | soaking (v3 default) | Running live on v3 as default. User reports it "feels like it's going pretty well" in real push-to-talk use; **soak ongoing — not yet greenlit for Whisper deletion**. All work committed on branch `spike/fluidaudio-parakeet` (6 commits), NOT pushed. |
 | 2026-06-09 | soaking — ⚠️ findings | Two soak findings: (1) v3 keeps "um"/"uh" verbatim — user now wants them cleaned (Whisper did this inherently). (2) **Word misrecognition observed in real dictation: "sentences" → "sentises"** — this is rubric criterion #1 (accent-word accuracy ≤ Whisper) territory. One word ≠ verdict, but Whisper deletion stays blocked until accuracy is compared on the problem words. |
+| 2026-06-09 | soaking + filler filter | `DisfluencyFilter` added (user greenlit): bounded text-domain pass on Parakeet output only — whole-token match against a fixed filler list, repairs capital/terminal-punctuation seams it creates, cannot misspell/reorder/invent. 11 tests; suite 69 green. Soak continues with cleaned output. Misrecognition concern still open. |
 
 States: `not-started` / `in-progress` / `blocked` / `decided`.
 
