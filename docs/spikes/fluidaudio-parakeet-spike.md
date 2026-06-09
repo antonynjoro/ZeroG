@@ -11,6 +11,7 @@
 | 2026-06-07 | blocked (handoff) | All spike code landed (engine, factory, comparator, menu, tests). Build + 58 tests green; unsigned .app built. BLOCKED on user voice recordings — measurement cannot proceed without them. |
 | 2026-06-07 | decided (adopt) | User judged both Parakeet variants fine on their voice. DECISION: adopt **Parakeet v3** as the single engine; remove the picker AND WhisperKit entirely. Decided on qualitative feel (no WER numbers captured). Live default flipped to v3 for a real-world soak; Whisper deletion staged as a follow-up after soak. |
 | 2026-06-07 | soaking (v3 default) | Running live on v3 as default. User reports it "feels like it's going pretty well" in real push-to-talk use; **soak ongoing — not yet greenlit for Whisper deletion**. All work committed on branch `spike/fluidaudio-parakeet` (6 commits), NOT pushed. |
+| 2026-06-09 | soaking — ⚠️ findings | Two soak findings: (1) v3 keeps "um"/"uh" verbatim — user now wants them cleaned (Whisper did this inherently). (2) **Word misrecognition observed in real dictation: "sentences" → "sentises"** — this is rubric criterion #1 (accent-word accuracy ≤ Whisper) territory. One word ≠ verdict, but Whisper deletion stays blocked until accuracy is compared on the problem words. |
 
 States: `not-started` / `in-progress` / `blocked` / `decided`.
 
