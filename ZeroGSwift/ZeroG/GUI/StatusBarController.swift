@@ -23,11 +23,17 @@ final class StatusBarController {
     /// SPIKE (spike/fluidaudio-parakeet): invoked by the "Compare STT backends" menu item.
     private let onRunBackendComparison: () -> Void
 
+    /// Opens the permissions / setup wizard.
+    private let onShowPermissions: () -> Void
+
     // MARK: Initialization
 
-    init(stateMachine: AppStateMachine, onRunBackendComparison: @escaping () -> Void = {}) {
+    init(stateMachine: AppStateMachine,
+         onRunBackendComparison: @escaping () -> Void = {},
+         onShowPermissions: @escaping () -> Void = {}) {
         self.stateMachine = stateMachine
         self.onRunBackendComparison = onRunBackendComparison
+        self.onShowPermissions = onShowPermissions
 
         setupStatusItem()
         observeState()
@@ -46,7 +52,18 @@ final class StatusBarController {
         menu.addItem(statusMenuItem)
         
         menu.addItem(NSMenuItem.separator())
-        
+
+        // Setup / Permissions wizard
+        let setupItem = NSMenuItem(
+            title: "Setup / Permissions…",
+            action: #selector(showPermissions),
+            keyEquivalent: ""
+        )
+        setupItem.target = self
+        menu.addItem(setupItem)
+
+        menu.addItem(NSMenuItem.separator())
+
         // Gemini API key
         let geminiTitle = geminiMenuTitle()
         geminiMenuItem = NSMenuItem(
@@ -200,6 +217,12 @@ final class StatusBarController {
 
     @objc private func runBackendComparison() {
         onRunBackendComparison()
+    }
+
+    // MARK: - Permissions / Setup
+
+    @objc private func showPermissions() {
+        onShowPermissions()
     }
 
     // MARK: - Gemini Key Dialog

@@ -30,6 +30,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     private var statusBarController: StatusBarController!
     private var hudController: HUDPanelController!
 
+    // MARK: Permissions / Onboarding
+
+    private var permissionsManager: PermissionsManager!
+    private var onboardingController: OnboardingWindowController!
+
     /// SPIKE (spike/fluidaudio-parakeet): the most recent captured audio buffer, fed to the
     /// backend comparator so every engine sees identical audio.
     private var lastCapturedBuffer: [Float] = []
@@ -67,10 +72,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
             }
         )
         
+        // Permissions + onboarding wizard
+        permissionsManager = PermissionsManager()
+        onboardingController = OnboardingWindowController(permissions: permissionsManager)
+        permissionsManager.onPermissionGranted = { [weak self] kind in
+            self?.onboardingController.handlePermissionGranted(kind)
+        }
+
         // Initialize GUI
         statusBarController = StatusBarController(
             stateMachine: stateMachine,
-            onRunBackendComparison: { [weak self] in self?.runBackendComparison() }
+            onRunBackendComparison: { [weak self] in self?.runBackendComparison() },
+            onShowPermissions: { [weak self] in self?.onboardingController.show() }
         )
         hudController = HUDPanelController(stateMachine: stateMachine)
         
