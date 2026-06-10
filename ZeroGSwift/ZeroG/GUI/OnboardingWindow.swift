@@ -79,6 +79,12 @@ final class OnboardingViewModel: ObservableObject {
 
     let permissions: PermissionsManager
 
+    /// Attempts to install the key tap; returns whether it's live. Set by the
+    /// controller. Attempting `CGEvent.tapCreate` (even when it fails for lack of
+    /// permission) is what actually lists ZeroG in the Input Monitoring pane —
+    /// `CGRequestListenEventAccess()` alone doesn't reliably pre-list.
+    var attemptKeyTap: (() -> Bool)?
+
     init(permissions: PermissionsManager) {
         self.permissions = permissions
         self.selectedKey = Config.triggerKey
@@ -142,7 +148,12 @@ final class OnboardingViewModel: ObservableObject {
     /// listed with a toggle when the user arrives, no "+ and hunt" friction.
     func requestAndOpenSettings(for step: OnboardingStep) {
         guard let kind = step.permission else { return }
-        if kind == .inputMonitoring { inputMonitoringAttempted = true }
+        if kind == .inputMonitoring {
+            inputMonitoringAttempted = true
+            // tapCreate attempt registers ZeroG in the Input Monitoring pane so
+            // the toggle is already there when the user arrives (no "+ and hunt").
+            _ = attemptKeyTap?()
+        }
         permissions.request(kind)
         permissions.openSettings(for: kind)
     }
@@ -809,6 +820,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
 
     private func buildWindow() {
         let model = OnboardingViewModel(permissions: permissions)
+        model.attemptKeyTap = { [weak self] in self?.attemptKeyTap?() ?? false }
         self.model = model
 
         let root = OnboardingWizardView(
