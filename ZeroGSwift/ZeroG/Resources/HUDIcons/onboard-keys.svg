@@ -1,0 +1,18 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ok-orbit" x1="6" y1="32" x2="58" y2="32" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#19D7DE"/>
+      <stop offset="0.48" stop-color="#8C5CFF"/>
+      <stop offset="1" stop-color="#FFB23F"/>
+    </linearGradient>
+    <linearGradient id="ok-cap" x1="18" y1="16" x2="46" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF9EA"/>
+      <stop offset="1" stop-color="#D8D1C5"/>
+    </linearGradient>
+  </defs>
+  <path d="M6 40C12 30 20 27 27 30" stroke="url(#ok-orbit)" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M40 32C47 34 53 31 58 23" stroke="url(#ok-orbit)" stroke-width="4.5" stroke-linecap="round" opacity="0.85"/>
+  <rect x="18" y="17" width="28" height="28" rx="7" fill="url(#ok-cap)"/>
+  <rect x="18" y="17" width="28" height="28" rx="7" stroke="#5F6470" stroke-width="3"/>
+  <path d="M25 37L32 27L39 37" stroke="#5F6470" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

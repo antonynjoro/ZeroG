@@ -1,0 +1,19 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="om-orbit" x1="8" y1="32" x2="56" y2="32" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#19D7DE"/>
+      <stop offset="0.48" stop-color="#8C5CFF"/>
+      <stop offset="1" stop-color="#FFB23F"/>
+    </linearGradient>
+    <linearGradient id="om-mic" x1="24" y1="12" x2="40" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF9EA"/>
+      <stop offset="1" stop-color="#D8D1C5"/>
+    </linearGradient>
+  </defs>
+  <path d="M8 32C14 26 22 26 28 30" stroke="url(#om-orbit)" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M36 34C42 38 50 38 56 32" stroke="url(#om-orbit)" stroke-width="4.5" stroke-linecap="round" opacity="0.85"/>
+  <rect x="25" y="10" width="14" height="28" rx="7" fill="url(#om-mic)"/>
+  <path d="M20 28C20 37 25 43 32 43C39 43 44 37 44 28" stroke="#5F6470" stroke-width="4" stroke-linecap="round"/>
+  <path d="M32 43V51" stroke="#5F6470" stroke-width="4" stroke-linecap="round"/>
+  <path d="M24 51H40" stroke="#5F6470" stroke-width="4" stroke-linecap="round"/>
+</svg>
