@@ -235,9 +235,9 @@ final class StatusBarController {
     }
 
     /// Reflect whether the hotkey tap is live. Shows the "Hotkey disabled" line
-    /// in the menu when Input Monitoring is missing.
-    func updateHotkeyStatus(inputMonitoringGranted: Bool) {
-        hotkeyDisabledMenuItem.isHidden = inputMonitoringGranted
+    /// in the menu when the key tap isn't running (Accessibility missing).
+    func updateHotkeyStatus(hotkeyLive: Bool) {
+        hotkeyDisabledMenuItem.isHidden = hotkeyLive
     }
 
     // MARK: - Gemini Key Dialog

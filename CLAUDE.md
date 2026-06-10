@@ -79,9 +79,10 @@ KeyMonitor (CGEvent tap)
 **GUI**: Both `StatusBarController` and `HUDPanelController` are Cocoa-native (not SwiftUI views), subscribing to `AppStateMachine` via Combine `sink`.
 
 ### macOS Permissions Required
-- Input Monitoring (for CGEvent tap)
-- Accessibility (for Cmd+V simulation)
 - Microphone (for AVAudioEngine)
+- Accessibility (for both the listen-only CGEvent key tap AND Cmd+V paste)
+
+Only **two** permissions. Input Monitoring is NOT required: ZeroG's key listener is a listen-only `CGEvent` tap, which an Accessibility-trusted process is already allowed to create — so Accessibility covers both trigger-key detection and paste injection. The guided onboarding wizard (`GUI/OnboardingWindow.swift`) requests exactly these two.
 
 Grant in System Settings → Privacy & Security. If the event tap fails to install, the app logs a detailed instructions message.
 

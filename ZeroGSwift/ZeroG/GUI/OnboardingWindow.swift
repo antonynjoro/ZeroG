@@ -40,7 +40,6 @@ private extension Color {
 enum OnboardingStep: Int, CaseIterable {
     case welcome
     case microphone
-    case inputMonitoring
     case accessibility
     case triggerKey
     case done
@@ -50,10 +49,9 @@ enum OnboardingStep: Int, CaseIterable {
     /// The permission a step gates on, if any.
     var permission: PermissionKind? {
         switch self {
-        case .microphone:      return .microphone
-        case .inputMonitoring: return .inputMonitoring
-        case .accessibility:   return .accessibility
-        default:               return nil
+        case .microphone:    return .microphone
+        case .accessibility: return .accessibility
+        default:             return nil
         }
     }
 }
@@ -69,13 +67,13 @@ final class OnboardingViewModel: ObservableObject {
     /// Mic is `.denied` (vs `.notDetermined`) → the "Allow" button must deep-link
     /// to Settings instead of calling `requestAccess` (which would no-op silently).
     @Published var micDenied: Bool
-    /// Set when the Input-Monitoring grant arrived but the tap could not be
-    /// re-created live — the step then asks the user to relaunch.
+    /// Set when Accessibility was granted but the key tap could not be created
+    /// live — the step then asks the user to relaunch.
     @Published var relaunchRequired = false
-    /// True once the user has opened Settings for Input Monitoring; gates the
+    /// True once the user has opened Settings for Accessibility; gates the
     /// per-tick tap-liveness probe so it doesn't fire (or surface relaunch) before
     /// the user has had a chance to enable the toggle.
-    @Published var inputMonitoringAttempted = false
+    @Published var accessibilityAttempted = false
 
     let permissions: PermissionsManager
 
@@ -107,9 +105,8 @@ final class OnboardingViewModel: ObservableObject {
 
     static func step(for kind: PermissionKind) -> OnboardingStep {
         switch kind {
-        case .microphone:      return .microphone
-        case .inputMonitoring: return .inputMonitoring
-        case .accessibility:   return .accessibility
+        case .microphone:    return .microphone
+        case .accessibility: return .accessibility
         }
     }
 
@@ -148,10 +145,10 @@ final class OnboardingViewModel: ObservableObject {
     /// listed with a toggle when the user arrives, no "+ and hunt" friction.
     func requestAndOpenSettings(for step: OnboardingStep) {
         guard let kind = step.permission else { return }
-        if kind == .inputMonitoring {
-            inputMonitoringAttempted = true
-            // tapCreate attempt registers ZeroG in the Input Monitoring pane so
-            // the toggle is already there when the user arrives (no "+ and hunt").
+        if kind == .accessibility {
+            accessibilityAttempted = true
+            // Attempting the tap also exercises Accessibility; the AX prompt from
+            // request() pre-lists ZeroG in the pane so the toggle is already there.
             _ = attemptKeyTap?()
         }
         permissions.request(kind)
@@ -560,7 +557,6 @@ struct OnboardingWizardView: View {
             switch model.step {
             case .welcome:         welcome
             case .microphone,
-                 .inputMonitoring,
                  .accessibility:   permissionStep
             case .triggerKey:      triggerKeyStep
             case .done:            doneStep
@@ -676,7 +672,7 @@ struct OnboardingWizardView: View {
             }
         case .microphone:
             micFooter
-        case .inputMonitoring, .accessibility:
+        case .accessibility:
             settingsFooter
         case .triggerKey:
             PrimaryButton(title: "Use \(model.selectedKey.displayName)") { model.chooseKeyAndAdvance() }
@@ -705,11 +701,11 @@ struct OnboardingWizardView: View {
         let granted = model.step.permission.map { model.permissions.status(for: $0) == .granted } ?? false
         if granted {
             PrimaryButton(title: "Continue") { model.advance() }.riseIn(0.30)
-        } else if model.step == .inputMonitoring && model.relaunchRequired {
+        } else if model.step == .accessibility && model.relaunchRequired {
             // The running process can't adopt the fresh grant — relaunch is the fix.
             VStack(spacing: 0) {
                 PrimaryButton(title: "Relaunch ZeroG") { onRelaunch() }.riseIn(0.30)
-                Text("Input Monitoring is on, but ZeroG needs a restart to use it.")
+                Text("Accessibility is on, but ZeroG needs a restart to use it.")
                     .font(.system(size: 11)).foregroundColor(OB.orbit3)
                     .padding(.top, 12).riseIn(0.36)
             }
@@ -734,9 +730,9 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
     private(set) var model: OnboardingViewModel?
 
-    /// Attempts to install the key tap; returns whether it is now live. This is
-    /// the ground-truth Input-Monitoring probe (CGPreflight caches false), used
-    /// both by the per-tick liveness poll and the grant handler. Wired by the app.
+    /// Attempts to install the key tap; returns whether it is now live. Doubles as
+    /// the ground-truth Accessibility probe (AXIsProcessTrusted can cache stale),
+    /// used by the per-tick liveness poll and the grant handler. Wired by the app.
     var attemptKeyTap: (() -> Bool)?
 
     /// Called after the wizard closes and the app has reverted to `.accessory`.
@@ -744,38 +740,38 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     /// (`.regular` → `.accessory`) leaves in a dead state. Wired by the app.
     var onClose: (() -> Void)?
 
-    /// Consecutive failed tap attempts after the user opened Settings for Input
-    /// Monitoring. After enough, we conclude the running process can't pick up the
-    /// grant live and surface the relaunch affordance.
+    /// Consecutive failed tap attempts after the user opened Settings for
+    /// Accessibility. After enough, we conclude the running process can't pick up
+    /// the grant live and surface the relaunch affordance.
     private var tapFailStreak = 0
     private let tapFailThreshold = 5
 
     init(permissions: PermissionsManager) {
         self.permissions = permissions
         super.init()
-        // Per-tick liveness probe for Input Monitoring.
-        permissions.onRefresh = { [weak self] in self?.pollInputMonitoring() }
+        // Per-tick liveness probe for the key tap (gated on Accessibility).
+        permissions.onRefresh = { [weak self] in self?.pollAccessibilityTap() }
     }
 
     /// Runs on every poll tick while the window is open. Tries to bring up the tap
-    /// once the user has opened Settings; success → mark granted (auto-advance),
-    /// repeated failure → ask the user to relaunch.
-    private func pollInputMonitoring() {
+    /// once the user has opened Settings; success → mark Accessibility granted
+    /// (auto-advance), repeated failure → ask the user to relaunch.
+    private func pollAccessibilityTap() {
         guard let model, window?.isVisible == true else { return }
-        guard model.inputMonitoringAttempted,
-              permissions.status(for: .inputMonitoring) != .granted else { return }
+        guard model.accessibilityAttempted,
+              permissions.status(for: .accessibility) != .granted else { return }
 
         if attemptKeyTap?() == true {
             tapFailStreak = 0
-            permissions.markGranted(.inputMonitoring)
+            permissions.markGranted(.accessibility)
         } else {
             tapFailStreak += 1
             if tapFailStreak >= tapFailThreshold { model.relaunchRequired = true }
         }
     }
 
-    /// Relaunch the app — the reliable escape when a freshly-granted Input
-    /// Monitoring permission can't be adopted by the running process.
+    /// Relaunch the app — the reliable escape when a freshly-granted Accessibility
+    /// permission can't be adopted by the running process.
     func relaunchApp() {
         let config = NSWorkspace.OpenConfiguration()
         config.createsNewApplicationInstance = true
@@ -803,9 +799,9 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     /// Forward a granted permission to the live wizard (auto-advance) and run the
     /// Input-Monitoring retry. Safe to call when the window is closed (no-op).
     func handlePermissionGranted(_ kind: PermissionKind) {
-        if kind == .inputMonitoring {
-            // Ensure the tap is live (it usually already is — pollInputMonitoring
-            // confirmed it). If it can't come up, ask the user to relaunch.
+        if kind == .accessibility {
+            // Accessibility authorizes the key tap — bring it up now. If it can't
+            // come up live, ask the user to relaunch.
             model?.relaunchRequired = (attemptKeyTap?() == false)
         }
         model?.handleGranted(kind)

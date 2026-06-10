@@ -98,18 +98,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.permissionsManager.refresh()
-                if self.permissionsManager.status(for: .inputMonitoring) == .granted {
+                if self.permissionsManager.status(for: .accessibility) == .granted {
                     self.keyMonitor.stop()
                     self.keyMonitor.start()
                 }
                 self.statusBarController.updateHotkeyStatus(
-                    inputMonitoringGranted: self.keyMonitor.isRunning)
+                    hotkeyLive: self.keyMonitor.isRunning)
             }
         }
         permissionsManager.onPermissionGranted = { [weak self] kind in
             guard let self else { return }
             self.onboardingController.handlePermissionGranted(kind)
-            self.statusBarController.updateHotkeyStatus(inputMonitoringGranted: self.keyMonitor.isRunning)
+            self.statusBarController.updateHotkeyStatus(hotkeyLive: self.keyMonitor.isRunning)
         }
 
         // Initialize GUI
@@ -129,16 +129,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         }
 
         // Permission-gated startup. Read live status, log it, and only install the
-        // key tap if Input Monitoring is granted; surface the wizard if anything
-        // is missing. Model download below runs concurrently regardless.
+        // key tap if Accessibility is granted (it authorizes the listen-only tap);
+        // surface the wizard if anything is missing. Model download below runs
+        // concurrently regardless.
         permissionsManager.refresh()
         logPermissionStatuses()
 
-        let inputMonitoringGranted = permissionsManager.status(for: .inputMonitoring) == .granted
-        if inputMonitoringGranted {
+        if permissionsManager.status(for: .accessibility) == .granted {
             keyMonitor.start()
         }
-        statusBarController.updateHotkeyStatus(inputMonitoringGranted: keyMonitor.isRunning)
+        statusBarController.updateHotkeyStatus(hotkeyLive: keyMonitor.isRunning)
 
         if permissionsManager.shouldShowOnboarding {
             onboardingController.show()

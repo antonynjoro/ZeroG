@@ -17,30 +17,22 @@ struct OnboardingViewModelTests {
         #expect(step == .welcome)
     }
 
-    @Test("Mic granted, rest missing → jump to Input Monitoring")
+    @Test("Mic granted, accessibility missing → jump to Accessibility")
     func reentryMicGranted() {
         let checker = FakePermissionChecker([.microphone: .granted])
-        #expect(OnboardingViewModel.initialStep(statuses: checker.statuses) == .inputMonitoring)
-    }
-
-    @Test("Mic + Input Monitoring granted → jump to Accessibility")
-    func reentryTwoGranted() {
-        let checker = FakePermissionChecker([.microphone: .granted, .inputMonitoring: .granted])
         #expect(OnboardingViewModel.initialStep(statuses: checker.statuses) == .accessibility)
     }
 
     @Test("All granted → Done")
     func reentryAllGranted() {
-        let checker = FakePermissionChecker([
-            .microphone: .granted, .inputMonitoring: .granted, .accessibility: .granted
-        ])
+        let checker = FakePermissionChecker([.microphone: .granted, .accessibility: .granted])
         #expect(OnboardingViewModel.initialStep(statuses: checker.statuses) == .done)
     }
 
     @Test("Init places the model at its re-entry step")
     func initUsesReentryStep() {
         let vm = OnboardingViewModel(manager([.microphone: .granted]))
-        #expect(vm.step == .inputMonitoring)
+        #expect(vm.step == .accessibility)
     }
 
     // MARK: Auto-advance
@@ -48,17 +40,17 @@ struct OnboardingViewModelTests {
     @Test("Granting the current step's permission auto-advances")
     func grantAdvancesCurrentStep() {
         let vm = OnboardingViewModel(manager([:]))
-        vm.step = .inputMonitoring
-        vm.handleGranted(.inputMonitoring)
-        #expect(vm.step == .accessibility)
+        vm.step = .accessibility
+        vm.handleGranted(.accessibility)
+        #expect(vm.step == .triggerKey)
     }
 
     @Test("Granting a different permission does not advance")
     func grantOtherStepDoesNotAdvance() {
         let vm = OnboardingViewModel(manager([:]))
-        vm.step = .inputMonitoring
-        vm.handleGranted(.accessibility)
-        #expect(vm.step == .inputMonitoring)
+        vm.step = .accessibility
+        vm.handleGranted(.microphone)
+        #expect(vm.step == .accessibility)
     }
 
     @Test("Granting mic clears the denied flag")

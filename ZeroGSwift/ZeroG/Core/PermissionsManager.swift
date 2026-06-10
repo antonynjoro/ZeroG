@@ -1,43 +1,43 @@
 import Foundation
 import AppKit
 import AVFoundation
-import CoreGraphics
 import ApplicationServices
 import Combine
 
 // MARK: - Permission model
 
-/// One of the three macOS permissions ZeroG cannot function without.
-/// `allCases` order is also the wizard order ("Permission 1 of 3" …).
+/// One of the two macOS permissions ZeroG cannot function without.
+/// `allCases` order is also the wizard order ("Permission 1 of 2" …).
+///
+/// Note: ZeroG does NOT need a separate Input Monitoring grant. Its key listener
+/// is a listen-only `CGEvent` tap, which an Accessibility-trusted process is
+/// already allowed to create — so Accessibility covers both the trigger-key
+/// detection and the paste injection.
 enum PermissionKind: CaseIterable {
     case microphone
-    case inputMonitoring
     case accessibility
 
     /// User-facing name, matching the System Settings pane label.
     var displayName: String {
         switch self {
-        case .microphone:      return "Microphone"
-        case .inputMonitoring: return "Input Monitoring"
-        case .accessibility:   return "Accessibility"
+        case .microphone:    return "Microphone"
+        case .accessibility: return "Accessibility"
         }
     }
 
-    /// One-line "why we need this" copy (final, from the mockup).
+    /// One-line "why we need this" copy.
     var explanation: String {
         switch self {
-        case .microphone:      return "So ZeroG can hear your voice while you hold the key."
-        case .inputMonitoring: return "So ZeroG knows the moment you press and release your trigger key."
-        case .accessibility:   return "So ZeroG can type the transcribed text into any app."
+        case .microphone:    return "So ZeroG can hear your voice while you hold the key."
+        case .accessibility: return "So ZeroG can detect your trigger key and type the transcribed text into any app."
         }
     }
 
     /// HUDIcons PNG (sans extension) for this step's halo.
     var iconName: String {
         switch self {
-        case .microphone:      return "onboard-mic"
-        case .inputMonitoring: return "onboard-keys"
-        case .accessibility:   return "onboard-paste"
+        case .microphone:    return "onboard-mic"
+        case .accessibility: return "onboard-paste"
         }
     }
 
@@ -49,15 +49,14 @@ enum PermissionKind: CaseIterable {
     var settingsURL: URL? {
         let base = "x-apple.systempreferences:com.apple.preference.security?"
         switch self {
-        case .microphone:      return URL(string: base + "Privacy_Microphone")
-        case .inputMonitoring: return URL(string: base + "Privacy_ListenEvent")
-        case .accessibility:   return URL(string: base + "Privacy_Accessibility")
+        case .microphone:    return URL(string: base + "Privacy_Microphone")
+        case .accessibility: return URL(string: base + "Privacy_Accessibility")
         }
     }
 }
 
 /// Tri-state authorization. Only `.microphone` ever reports `.notDetermined`;
-/// the CG / AX checks expose only granted-or-not, so their `false` maps to `.denied`.
+/// the AX check exposes only granted-or-not, so its `false` maps to `.denied`.
 enum PermissionStatus {
     case granted
     case denied
@@ -91,8 +90,6 @@ final class SystemPermissionChecker: PermissionChecking {
             case .notDetermined:  return .notDetermined
             default:              return .denied   // .denied, .restricted
             }
-        case .inputMonitoring:
-            return CGPreflightListenEventAccess() ? .granted : .denied
         case .accessibility:
             return AXIsProcessTrusted() ? .granted : .denied
         }
@@ -109,13 +106,8 @@ final class SystemPermissionChecker: PermissionChecking {
                     completion(granted ? .granted : .denied)
                 }
             }
-        case .inputMonitoring:
-            // Prompts + pre-lists the app in the Input Monitoring pane. The return
-            // value is `false` until the user actually grants in Settings, so we do
-            // NOT trust it — grant detection is via polling `status(for:)`.
-            _ = CGRequestListenEventAccess()
-            completion(status(for: kind))
         case .accessibility:
+            // Prompts + pre-lists the app in the Accessibility pane.
             let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
             _ = AXIsProcessTrustedWithOptions(opts)
             completion(status(for: kind))
