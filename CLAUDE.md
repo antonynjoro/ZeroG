@@ -6,6 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - [`docs/app-store-readiness-audit.md`](docs/app-store-readiness-audit.md) — Full audit of App Store compliance, production readiness, and maintainability (2026-05-03). Contains the prioritised fix checklist and the rationale for direct-download distribution over Mac App Store submission.
 - [`docs/distribution-signing.md`](docs/distribution-signing.md) — How to sign (Developer ID) and notarize ZeroG for direct download. One-time cert/credential setup plus the `build_app.sh` env-var build modes.
+- [`docs/spikes/fluidaudio-parakeet-spike.md`](docs/spikes/fluidaudio-parakeet-spike.md) — In-progress spike (branch `spike/fluidaudio-parakeet`): evaluating FluidAudio/Parakeet as a replacement for WhisperKit. Cross-session tracking doc with the decision rubric, findings table, and decision log.
 
 ## After Making Changes
 

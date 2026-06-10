@@ -15,6 +15,11 @@ let package = Package(
         
         // Google Generative AI: Optional Gemini API for text polishing
         .package(url: "https://github.com/google-gemini/generative-ai-swift.git", from: "0.5.0"),
+
+        // FluidAudio: SPIKE ONLY (branch spike/fluidaudio-parakeet) — NVIDIA Parakeet TDT
+        // on the ANE, evaluated as a possible WhisperKit replacement. Remove if the spike
+        // is rejected. See docs/spikes/fluidaudio-parakeet-spike.md.
+        .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.15.0"),
     ],
     targets: [
         .executableTarget(
@@ -22,6 +27,7 @@ let package = Package(
             dependencies: [
                 "WhisperKit",
                 .product(name: "GoogleGenerativeAI", package: "generative-ai-swift"),
+                .product(name: "FluidAudio", package: "FluidAudio"), // SPIKE — see deps note
             ],
             path: "ZeroG",
             resources: [
