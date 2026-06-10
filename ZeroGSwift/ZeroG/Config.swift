@@ -182,7 +182,17 @@ extension Config {
             .dropLast(1) // Remove .app bundle
             .joined(separator: "/")
             + "/.env"
-        
+
+        // Reading anything under a macOS-protected user folder (Documents/Desktop/
+        // Downloads) triggers a TCC "would like to access files…" prompt that has
+        // nothing to do with ZeroG's real permissions. Dev builds often live under
+        // ~/Documents, so skip the .env probe there — a shipped /Applications copy
+        // is unaffected, and keys still come from UserDefaults / env vars.
+        if isUnderProtectedDirectory(envPath) {
+            Log.debug("Config", "Skipping .env under a protected folder (avoids a TCC prompt): \(envPath)")
+            return
+        }
+
         guard FileManager.default.fileExists(atPath: envPath),
               let contents = try? String(contentsOfFile: envPath, encoding: .utf8) else {
             return
@@ -208,5 +218,15 @@ extension Config {
         }
         
         Log.debug("Config", "Loaded .env file from: \(envPath)")
+    }
+
+    /// Whether `path` sits inside a macOS-protected user folder, where a read
+    /// would provoke a TCC permission prompt. Uses only path lookups (no file
+    /// access), so calling it never triggers the prompt itself.
+    private static func isUnderProtectedDirectory(_ path: String) -> Bool {
+        let fm = FileManager.default
+        let protectedRoots: [String] = [.documentDirectory, .desktopDirectory, .downloadsDirectory]
+            .compactMap { fm.urls(for: $0, in: .userDomainMask).first?.path }
+        return protectedRoots.contains { path == $0 || path.hasPrefix($0 + "/") }
     }
 }
