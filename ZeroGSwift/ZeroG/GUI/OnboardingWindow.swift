@@ -355,6 +355,8 @@ private struct LiveTryField: View {
     let keyName: String
     @State private var text = ""
     @State private var celebrated = false
+    @State private var checkPop = false
+    @State private var ripple = false
     @FocusState private var focused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let peaks: [CGFloat] = [7, 11, 9, 14, 10, 16, 12, 16, 10, 14, 9, 11, 7]
@@ -373,31 +375,50 @@ private struct LiveTryField: View {
                 .background(RoundedRectangle(cornerRadius: 10)
                     .fill(celebrated ? OB.ok.opacity(0.08) : OB.cardBg))
                 .overlay(RoundedRectangle(cornerRadius: 10)
-                    .stroke(celebrated ? OB.ok.opacity(0.6)
+                    .stroke(celebrated ? OB.ok.opacity(0.7)
                             : (focused ? OB.accent.opacity(0.6) : OB.cardStroke), lineWidth: 1))
+                .shadow(color: OB.ok.opacity(celebrated ? 0.22 : 0), radius: 12)
 
-            // tada — fires the first time text lands in the field (typed or pasted)
-            if celebrated {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(OB.ok)
-                    Text("That's it — you're ready to go.")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(OB.ok)
-                }
-                .scaleEffect(celebrated ? 1 : 0.5)
-                .transition(.scale.combined(with: .opacity))
-            }
+            if celebrated { successRow }
         }
         .onAppear { DispatchQueue.main.async { focused = true } }
         .onChange(of: text) { _, newValue in
             guard !celebrated, !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-            if reduceMotion {
-                celebrated = true
-            } else {
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.55)) { celebrated = true }
-            }
+            celebrate()
         }
+    }
+
+    // One coordinated success beat: a spring check inside a single soft ring,
+    // a green glow on the field, and a real trackpad haptic.
+    private var successRow: some View {
+        HStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .stroke(OB.ok, lineWidth: 2)
+                    .frame(width: 22, height: 22)
+                    .scaleEffect(ripple ? 1.9 : 0.7)
+                    .opacity(ripple ? 0 : 0.8)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(OB.ok)
+                    .scaleEffect(checkPop ? 1 : 0.3)
+            }
+            .frame(width: 22, height: 22)
+            Text("That's it. You're ready to go.")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(OB.ok)
+        }
+        .transition(.opacity)
+    }
+
+    private func celebrate() {
+        // Tactile confirmation on trackpads — the most "satisfying" part, and quiet.
+        NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+
+        guard !reduceMotion else { celebrated = true; checkPop = true; return }
+        withAnimation(.easeOut(duration: 0.35)) { celebrated = true }
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.5).delay(0.05)) { checkPop = true }
+        withAnimation(.easeOut(duration: 0.7).delay(0.05)) { ripple = true }
     }
 }
 
