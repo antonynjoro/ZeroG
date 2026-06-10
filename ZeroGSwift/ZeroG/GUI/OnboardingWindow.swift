@@ -345,40 +345,34 @@ private struct AppMark: View {
     }
 }
 
-// MARK: - Done teaching demo
-
-private struct TeachingDemo: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var typed = ""
-    @State private var caretOn = true
-    private let fullText = "testing, one two three"
-    // varied heights + speeds → organic resting pulse (from the mockup)
+// MARK: - Done live try-field
+//
+// A real, focusable text field so the user can test dictation for real on the
+// Done step: click in, hold the trigger key, speak — the transcription pastes
+// here. Also doubles as a live Accessibility check (paste only works if granted).
+private struct LiveTryField: View {
+    let keyGlyph: String
+    let keyName: String
+    @State private var text = ""
+    @FocusState private var focused: Bool
     private let peaks: [CGFloat] = [7, 11, 9, 14, 10, 16, 12, 16, 10, 14, 9, 11, 7]
     private let durs:  [Double]  = [1.9, 2.3, 1.7, 2.1, 2.5, 1.8, 2.2, 1.8, 2.5, 2.1, 1.7, 2.3, 1.9]
 
     var body: some View {
         VStack(spacing: 12) {
             Waveform(peaks: peaks, durs: durs)
-            HStack(spacing: 1) {
-                Text(typed).font(.system(size: 13)).foregroundColor(OB.text)
-                Rectangle().fill(OB.accent).frame(width: 2, height: 15).opacity(caretOn ? 1 : 0)
-            }
-            .padding(.horizontal, 14).padding(.vertical, 9)
-            .frame(minHeight: 36)
-            .background(RoundedRectangle(cornerRadius: 10).fill(OB.cardBg))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(OB.cardStroke, lineWidth: 1))
+            TextField("Hold \(keyGlyph) \(keyName) and speak…", text: $text)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .foregroundColor(OB.text)
+                .focused($focused)
+                .padding(.horizontal, 14).padding(.vertical, 11)
+                .frame(minHeight: 40)
+                .background(RoundedRectangle(cornerRadius: 10).fill(OB.cardBg))
+                .overlay(RoundedRectangle(cornerRadius: 10)
+                    .stroke(focused ? OB.accent.opacity(0.6) : OB.cardStroke, lineWidth: 1))
         }
-        .onAppear(perform: start)
-    }
-
-    private func start() {
-        withAnimation(.linear(duration: 1).repeatForever(autoreverses: true)) { caretOn = false }
-        guard !reduceMotion else { typed = fullText; return }
-        typed = ""
-        Timer.scheduledTimer(withTimeInterval: 0.065, repeats: true) { t in
-            if typed.count >= fullText.count { t.invalidate(); return }
-            typed = String(fullText.prefix(typed.count + 1))
-        }
+        .onAppear { DispatchQueue.main.async { focused = true } }
     }
 }
 
@@ -607,7 +601,8 @@ struct OnboardingWizardView: View {
                 .foregroundColor(OB.textDim)
                 .frame(maxWidth: 300)
                 .padding(.top, 8).riseIn(0.20)
-            TeachingDemo().padding(.top, 20).riseIn(0.26)
+            LiveTryField(keyGlyph: model.triggerGlyph, keyName: model.selectedKey.displayName)
+                .padding(.top, 20).riseIn(0.26)
         }
     }
 
