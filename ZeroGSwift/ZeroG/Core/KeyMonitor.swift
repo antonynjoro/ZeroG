@@ -30,6 +30,10 @@ final class KeyMonitor {
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
+    /// Whether the tap is currently installed. Guards against a double `start()`
+    /// (e.g. the Input-Monitoring grant retry) leaking a second tap + a duplicate
+    /// trigger-key observer.
+    private(set) var isRunning = false
     private var triggerKey: TriggerKey = Config.triggerKey
     private var isTriggerKeyPressed = false
     private var isQPressedDuringSession = false
@@ -58,8 +62,14 @@ final class KeyMonitor {
     // MARK: - Start / Stop
 
     /// Install a CGEvent tap to monitor modifier key changes globally.
-    /// Requires Accessibility permissions (Input Monitoring).
-    func start() {
+    /// Requires Input Monitoring permission. Returns whether the tap is live —
+    /// `false` means the permission is missing and the caller should keep the
+    /// hotkey gated. Idempotent: a second call while already running is a no-op
+    /// that reports the existing success.
+    @discardableResult
+    func start() -> Bool {
+        guard !isRunning else { return true }
+
         // Event mask: flagsChanged (modifier keys) + keyDown (to detect Q)
         let eventMask: CGEventMask = (1 << CGEventType.flagsChanged.rawValue) | (1 << CGEventType.keyDown.rawValue)
 
@@ -107,7 +117,7 @@ final class KeyMonitor {
 
             Process: \(processName) | Bundle: \(parentApp)
             """)
-            return
+            return false
         }
 
         eventTap = tap
@@ -126,7 +136,9 @@ final class KeyMonitor {
             object: nil
         )
 
+        isRunning = true
         Log.debug("KeyMonitor", "Event tap installed. Monitoring \(triggerKey.displayName) key.")
+        return true
     }
 
     /// Remove the event tap and clean up.
@@ -146,6 +158,7 @@ final class KeyMonitor {
 
         eventTap = nil
         runLoopSource = nil
+        isRunning = false
 
         Log.debug("KeyMonitor", "Event tap removed.")
     }
