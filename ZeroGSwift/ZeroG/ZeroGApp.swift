@@ -90,6 +90,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         onboardingController.attemptKeyTap = { [weak self] in
             self?.keyMonitor.start() ?? false
         }
+        // The wizard switches the app to .regular for a Dock icon; reverting to
+        // .accessory on close leaves the event tap dead. Rebuild it once the
+        // policy has settled so the hotkey survives closing onboarding without a
+        // relaunch.
+        onboardingController.onClose = { [weak self] in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.permissionsManager.refresh()
+                if self.permissionsManager.status(for: .inputMonitoring) == .granted {
+                    self.keyMonitor.stop()
+                    self.keyMonitor.start()
+                }
+                self.statusBarController.updateHotkeyStatus(
+                    inputMonitoringGranted: self.keyMonitor.isRunning)
+            }
+        }
         permissionsManager.onPermissionGranted = { [weak self] kind in
             guard let self else { return }
             self.onboardingController.handlePermissionGranted(kind)

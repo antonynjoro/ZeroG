@@ -707,6 +707,11 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     /// both by the per-tick liveness poll and the grant handler. Wired by the app.
     var attemptKeyTap: (() -> Bool)?
 
+    /// Called after the wizard closes and the app has reverted to `.accessory`.
+    /// Lets the app rebuild the key tap, which the activation-policy switch
+    /// (`.regular` → `.accessory`) leaves in a dead state. Wired by the app.
+    var onClose: (() -> Void)?
+
     /// Consecutive failed tap attempts after the user opened Settings for Input
     /// Monitoring. After enough, we conclude the running process can't pick up the
     /// grant live and surface the relaunch affordance.
@@ -813,5 +818,6 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         permissions.stopPolling()             // no zombie polling after close
         NSApp.setActivationPolicy(.accessory) // back to menu-bar-only
+        onClose?()                            // rebuild the key tap (policy switch kills it)
     }
 }
