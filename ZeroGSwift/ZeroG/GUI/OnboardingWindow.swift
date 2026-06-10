@@ -693,7 +693,11 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         if window == nil { buildWindow() }
         model?.resetToInitialStep()
 
-        NSApp.activate(ignoringOtherApps: true)   // LSUIElement app has no normal activation
+        // Become a regular app for the duration of onboarding: Dock icon, a real
+        // window, and an app menu — so the wizard is discoverable instead of a
+        // hidden menu-bar-only surface. Reverted to .accessory on close.
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
         window?.center()
         window?.makeKeyAndOrderFront(nil)
         permissions.startPolling()
@@ -738,5 +742,6 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         permissions.stopPolling()             // no zombie polling after close
+        NSApp.setActivationPolicy(.accessory) // back to menu-bar-only
     }
 }
