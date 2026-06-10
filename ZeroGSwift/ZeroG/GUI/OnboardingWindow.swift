@@ -124,13 +124,6 @@ final class OnboardingViewModel: ObservableObject {
 
     // MARK: Step actions
 
-    /// Fire the prompting request once so the app pre-lists in the Settings pane.
-    /// Only for the deep-link permissions; mic is button-driven (native dialog).
-    func prelistIfNeeded(for step: OnboardingStep) {
-        guard let kind = step.permission, kind != .microphone else { return }
-        permissions.request(kind)
-    }
-
     func tapMicrophone() {
         // `.notDetermined` → native dialog; `.denied` → Settings (requestAccess no-ops).
         if permissions.status(for: .microphone) == .denied {
@@ -140,8 +133,12 @@ final class OnboardingViewModel: ObservableObject {
         }
     }
 
-    func openSettings(for step: OnboardingStep) {
+    /// Fire the native request (pre-lists ZeroG in the pane + shows the OS
+    /// "…would like to…" prompt) and then open the pane — so the app is already
+    /// listed with a toggle when the user arrives, no "+ and hunt" friction.
+    func requestAndOpenSettings(for step: OnboardingStep) {
         guard let kind = step.permission else { return }
+        permissions.request(kind)
         permissions.openSettings(for: kind)
     }
 
@@ -521,6 +518,7 @@ struct OnboardingWizardView: View {
             .font(.system(size: 10, weight: .semibold))
             .tracking(1.8)
             .foregroundColor(OB.accent)
+            .padding(.bottom, 16)   // mockup eyebrow margin; clears the floating app mark
             .riseIn(0.02)
     }
 
@@ -568,7 +566,6 @@ struct OnboardingWizardView: View {
             sub(granted ? "Access granted. You can move on." : kind.explanation)
                 .padding(.top, 8).riseIn(0.20)
         }
-        .onAppear { model.prelistIfNeeded(for: model.step) }
     }
 
     // Trigger key
@@ -652,7 +649,7 @@ struct OnboardingWizardView: View {
             PrimaryButton(title: "Continue") { model.advance() }.riseIn(0.30)
         } else {
             VStack(spacing: 0) {
-                PrimaryButton(title: "Open System Settings") { model.openSettings(for: model.step) }.riseIn(0.30)
+                PrimaryButton(title: "Open System Settings") { model.requestAndOpenSettings(for: model.step) }.riseIn(0.30)
                 if model.step == .inputMonitoring && model.relaunchRequired {
                     Text("Granted — quit and reopen ZeroG to enable the hotkey.")
                         .font(.system(size: 11)).foregroundColor(OB.orbit3)
@@ -710,6 +707,13 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
             model?.relaunchRequired = (retry() == false)
         }
         model?.handleGranted(kind)
+        // A grant means the user just finished in the native dialog or in System
+        // Settings — pull the wizard back to the front so it isn't lost behind
+        // other windows on the next step.
+        if let window, window.isVisible {
+            NSApp.activate(ignoringOtherApps: true)
+            window.makeKeyAndOrderFront(nil)
+        }
     }
 
     private func buildWindow() {
