@@ -354,7 +354,9 @@ private struct LiveTryField: View {
     let keyGlyph: String
     let keyName: String
     @State private var text = ""
+    @State private var celebrated = false
     @FocusState private var focused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let peaks: [CGFloat] = [7, 11, 9, 14, 10, 16, 12, 16, 10, 14, 9, 11, 7]
     private let durs:  [Double]  = [1.9, 2.3, 1.7, 2.1, 2.5, 1.8, 2.2, 1.8, 2.5, 2.1, 1.7, 2.3, 1.9]
 
@@ -368,11 +370,34 @@ private struct LiveTryField: View {
                 .focused($focused)
                 .padding(.horizontal, 14).padding(.vertical, 11)
                 .frame(minHeight: 40)
-                .background(RoundedRectangle(cornerRadius: 10).fill(OB.cardBg))
+                .background(RoundedRectangle(cornerRadius: 10)
+                    .fill(celebrated ? OB.ok.opacity(0.08) : OB.cardBg))
                 .overlay(RoundedRectangle(cornerRadius: 10)
-                    .stroke(focused ? OB.accent.opacity(0.6) : OB.cardStroke, lineWidth: 1))
+                    .stroke(celebrated ? OB.ok.opacity(0.6)
+                            : (focused ? OB.accent.opacity(0.6) : OB.cardStroke), lineWidth: 1))
+
+            // tada — fires the first time text lands in the field (typed or pasted)
+            if celebrated {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(OB.ok)
+                    Text("That's it — you're ready to go.")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(OB.ok)
+                }
+                .scaleEffect(celebrated ? 1 : 0.5)
+                .transition(.scale.combined(with: .opacity))
+            }
         }
         .onAppear { DispatchQueue.main.async { focused = true } }
+        .onChange(of: text) { _, newValue in
+            guard !celebrated, !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            if reduceMotion {
+                celebrated = true
+            } else {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.55)) { celebrated = true }
+            }
+        }
     }
 }
 
