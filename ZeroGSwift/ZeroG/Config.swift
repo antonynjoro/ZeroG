@@ -158,6 +158,11 @@ enum Config {
 
 extension Notification.Name {
     static let triggerKeyDidChange = Notification.Name("ZeroG.triggerKeyDidChange")
+
+    /// Posted when an action could not complete because a permission is missing
+    /// (e.g. paste blocked by missing Accessibility). Observed by the app to open
+    /// the setup wizard. Shared constant — never a raw string at call sites.
+    static let permissionsNeeded = Notification.Name("ZeroG.permissionsNeeded")
 }
 
 extension Config {

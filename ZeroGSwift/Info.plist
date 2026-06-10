@@ -51,7 +51,10 @@
 
     <key>NSInputMonitoringUsageDescription</key>
     <string>ZeroG monitors your trigger key (e.g. Control) to know when to start and stop recording.</string>
-    
+
+    <key>NSAccessibilityUsageDescription</key>
+    <string>ZeroG uses Accessibility to paste the transcribed text into the app you're typing in.</string>
+
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
 </dict>

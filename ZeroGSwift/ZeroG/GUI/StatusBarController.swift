@@ -10,6 +10,9 @@ final class StatusBarController {
     
     private var statusItem: NSStatusItem!
     private var statusMenuItem: NSMenuItem!
+    /// Shown only while Input Monitoring is missing (the tap is dead, so the
+    /// hotkey can't fire). Hidden once the tap is live.
+    private var hotkeyDisabledMenuItem: NSMenuItem!
     private var copyTranscriptionMenuItem: NSMenuItem!
     private var geminiMenuItem: NSMenuItem!
     private var triggerKeySubmenu: NSMenu!
@@ -50,7 +53,13 @@ final class StatusBarController {
         statusMenuItem = NSMenuItem(title: "Starting up...", action: nil, keyEquivalent: "")
         statusMenuItem.isEnabled = false
         menu.addItem(statusMenuItem)
-        
+
+        // Hotkey-disabled warning (hidden unless Input Monitoring is missing)
+        hotkeyDisabledMenuItem = NSMenuItem(title: "Hotkey disabled — open Setup", action: nil, keyEquivalent: "")
+        hotkeyDisabledMenuItem.isEnabled = false
+        hotkeyDisabledMenuItem.isHidden = true
+        menu.addItem(hotkeyDisabledMenuItem)
+
         menu.addItem(NSMenuItem.separator())
 
         // Setup / Permissions wizard
@@ -223,6 +232,12 @@ final class StatusBarController {
 
     @objc private func showPermissions() {
         onShowPermissions()
+    }
+
+    /// Reflect whether the hotkey tap is live. Shows the "Hotkey disabled" line
+    /// in the menu when Input Monitoring is missing.
+    func updateHotkeyStatus(inputMonitoringGranted: Bool) {
+        hotkeyDisabledMenuItem.isHidden = inputMonitoringGranted
     }
 
     // MARK: - Gemini Key Dialog

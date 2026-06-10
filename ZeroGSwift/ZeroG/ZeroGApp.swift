@@ -65,7 +65,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         keyMonitor = KeyMonitor(
             stateMachine: stateMachine,
             onStartRecording: { [weak self] in
-                self?.audioRecorder.startRecording()
+                guard let self else { return }
+                // The hotkey is live (Input Monitoring granted) but Mic or
+                // Accessibility may still be missing — in that case open the
+                // wizard instead of starting a recording that can't complete.
+                self.permissionsManager.refresh()
+                if self.permissionsManager.allGranted {
+                    self.audioRecorder.startRecording()
+                } else {
+                    self.onboardingController.show()
+                }
             },
             onStopRecording: { [weak self] in
                 self?.audioRecorder.beginProcessing()
@@ -75,8 +84,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         // Permissions + onboarding wizard
         permissionsManager = PermissionsManager()
         onboardingController = OnboardingWindowController(permissions: permissionsManager)
+        // When Input Monitoring is granted, retry installing the key tap live and
+        // report whether it came up (the wizard renders a relaunch note if not).
+        onboardingController.onInputMonitoringGranted = { [weak self] in
+            self?.keyMonitor.start() ?? false
+        }
         permissionsManager.onPermissionGranted = { [weak self] kind in
-            self?.onboardingController.handlePermissionGranted(kind)
+            guard let self else { return }
+            self.onboardingController.handlePermissionGranted(kind)
+            self.statusBarController.updateHotkeyStatus(inputMonitoringGranted: self.keyMonitor.isRunning)
         }
 
         // Initialize GUI
@@ -86,10 +102,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
             onShowPermissions: { [weak self] in self?.onboardingController.show() }
         )
         hudController = HUDPanelController(stateMachine: stateMachine)
-        
-        // Start key monitoring
-        keyMonitor.start()
-        
+
+        // Re-open the wizard whenever an action is blocked by a missing permission
+        // (e.g. paste blocked by Accessibility — posted from the inject path).
+        NotificationCenter.default.addObserver(
+            forName: .permissionsNeeded, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.onboardingController.show()
+        }
+
+        // Permission-gated startup. Read live status, log it, and only install the
+        // key tap if Input Monitoring is granted; surface the wizard if anything
+        // is missing. Model download below runs concurrently regardless.
+        permissionsManager.refresh()
+        logPermissionStatuses()
+
+        let inputMonitoringGranted = permissionsManager.status(for: .inputMonitoring) == .granted
+        if inputMonitoringGranted {
+            keyMonitor.start()
+        }
+        statusBarController.updateHotkeyStatus(inputMonitoringGranted: keyMonitor.isRunning)
+
+        if permissionsManager.shouldShowOnboarding {
+            onboardingController.show()
+        }
+
         // Show loading state and download model
         stateMachine.transition(to: .loading("Starting up..."))
         
@@ -118,6 +155,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     
     func applicationWillTerminate(_ notification: Notification) {
         keyMonitor?.stop()
+    }
+
+    /// Log the live permission status for each kind — visible in Console so a
+    /// "wizard didn't appear" report can be diagnosed without reading TCC.db.
+    private func logPermissionStatuses() {
+        for kind in PermissionKind.allCases {
+            Log.error("Permissions", "\(kind.displayName): \(permissionsManager.status(for: kind))")
+        }
     }
 
     // MARK: - STT backend (FluidAudio spike)
