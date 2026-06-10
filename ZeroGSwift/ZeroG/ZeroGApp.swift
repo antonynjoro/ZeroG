@@ -84,9 +84,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         // Permissions + onboarding wizard
         permissionsManager = PermissionsManager()
         onboardingController = OnboardingWindowController(permissions: permissionsManager)
-        // When Input Monitoring is granted, retry installing the key tap live and
-        // report whether it came up (the wizard renders a relaunch note if not).
-        onboardingController.onInputMonitoringGranted = { [weak self] in
+        // Ground-truth Input-Monitoring probe: try to install the key tap and
+        // report whether it's live (CGPreflight caches false, so the tap is the
+        // only reliable live signal). Drives the wizard's auto-advance + relaunch.
+        onboardingController.attemptKeyTap = { [weak self] in
             self?.keyMonitor.start() ?? false
         }
         permissionsManager.onPermissionGranted = { [weak self] kind in

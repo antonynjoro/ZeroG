@@ -72,6 +72,10 @@ final class OnboardingViewModel: ObservableObject {
     /// Set when the Input-Monitoring grant arrived but the tap could not be
     /// re-created live — the step then asks the user to relaunch.
     @Published var relaunchRequired = false
+    /// True once the user has opened Settings for Input Monitoring; gates the
+    /// per-tick tap-liveness probe so it doesn't fire (or surface relaunch) before
+    /// the user has had a chance to enable the toggle.
+    @Published var inputMonitoringAttempted = false
 
     let permissions: PermissionsManager
 
@@ -138,6 +142,7 @@ final class OnboardingViewModel: ObservableObject {
     /// listed with a toggle when the user arrives, no "+ and hunt" friction.
     func requestAndOpenSettings(for step: OnboardingStep) {
         guard let kind = step.permission else { return }
+        if kind == .inputMonitoring { inputMonitoringAttempted = true }
         permissions.request(kind)
         permissions.openSettings(for: kind)
     }
@@ -472,6 +477,7 @@ private struct PrimaryButton: View {
 struct OnboardingWizardView: View {
     @ObservedObject var model: OnboardingViewModel
     let onClose: () -> Void
+    var onRelaunch: () -> Void = {}
 
     var body: some View {
         ZStack {
@@ -647,18 +653,20 @@ struct OnboardingWizardView: View {
         let granted = model.step.permission.map { model.permissions.status(for: $0) == .granted } ?? false
         if granted {
             PrimaryButton(title: "Continue") { model.advance() }.riseIn(0.30)
+        } else if model.step == .inputMonitoring && model.relaunchRequired {
+            // The running process can't adopt the fresh grant — relaunch is the fix.
+            VStack(spacing: 0) {
+                PrimaryButton(title: "Relaunch ZeroG") { onRelaunch() }.riseIn(0.30)
+                Text("Input Monitoring is on, but ZeroG needs a restart to use it.")
+                    .font(.system(size: 11)).foregroundColor(OB.orbit3)
+                    .padding(.top, 12).riseIn(0.36)
+            }
         } else {
             VStack(spacing: 0) {
                 PrimaryButton(title: "Open System Settings") { model.requestAndOpenSettings(for: model.step) }.riseIn(0.30)
-                if model.step == .inputMonitoring && model.relaunchRequired {
-                    Text("Granted — quit and reopen ZeroG to enable the hotkey.")
-                        .font(.system(size: 11)).foregroundColor(OB.orbit3)
-                        .padding(.top, 12).riseIn(0.36)
-                } else {
-                    Text("Turn on the ZeroG toggle, then come back. We'll detect it for you.")
-                        .font(.system(size: 11)).foregroundColor(OB.textFaint)
-                        .padding(.top, 12).riseIn(0.36)
-                }
+                Text("Turn on the ZeroG toggle, then come back. We'll detect it for you.")
+                    .font(.system(size: 11)).foregroundColor(OB.textFaint)
+                    .padding(.top, 12).riseIn(0.36)
             }
         }
     }
@@ -674,14 +682,49 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
     private(set) var model: OnboardingViewModel?
 
-    /// Called when the Input-Monitoring grant lands so the app can retry the
-    /// key tap; returns whether the tap is now live. The controller flips the
-    /// step's relaunch note based on the result. Wired by the app (launch gating).
-    var onInputMonitoringGranted: (() -> Bool)?
+    /// Attempts to install the key tap; returns whether it is now live. This is
+    /// the ground-truth Input-Monitoring probe (CGPreflight caches false), used
+    /// both by the per-tick liveness poll and the grant handler. Wired by the app.
+    var attemptKeyTap: (() -> Bool)?
+
+    /// Consecutive failed tap attempts after the user opened Settings for Input
+    /// Monitoring. After enough, we conclude the running process can't pick up the
+    /// grant live and surface the relaunch affordance.
+    private var tapFailStreak = 0
+    private let tapFailThreshold = 5
 
     init(permissions: PermissionsManager) {
         self.permissions = permissions
         super.init()
+        // Per-tick liveness probe for Input Monitoring.
+        permissions.onRefresh = { [weak self] in self?.pollInputMonitoring() }
+    }
+
+    /// Runs on every poll tick while the window is open. Tries to bring up the tap
+    /// once the user has opened Settings; success → mark granted (auto-advance),
+    /// repeated failure → ask the user to relaunch.
+    private func pollInputMonitoring() {
+        guard let model, window?.isVisible == true else { return }
+        guard model.inputMonitoringAttempted,
+              permissions.status(for: .inputMonitoring) != .granted else { return }
+
+        if attemptKeyTap?() == true {
+            tapFailStreak = 0
+            permissions.markGranted(.inputMonitoring)
+        } else {
+            tapFailStreak += 1
+            if tapFailStreak >= tapFailThreshold { model.relaunchRequired = true }
+        }
+    }
+
+    /// Relaunch the app — the reliable escape when a freshly-granted Input
+    /// Monitoring permission can't be adopted by the running process.
+    func relaunchApp() {
+        let config = NSWorkspace.OpenConfiguration()
+        config.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: config) { _, _ in
+            DispatchQueue.main.async { NSApp.terminate(nil) }
+        }
     }
 
     /// Show (or re-show) the wizard at the first relevant step.
@@ -703,8 +746,10 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     /// Forward a granted permission to the live wizard (auto-advance) and run the
     /// Input-Monitoring retry. Safe to call when the window is closed (no-op).
     func handlePermissionGranted(_ kind: PermissionKind) {
-        if kind == .inputMonitoring, let retry = onInputMonitoringGranted {
-            model?.relaunchRequired = (retry() == false)
+        if kind == .inputMonitoring {
+            // Ensure the tap is live (it usually already is — pollInputMonitoring
+            // confirmed it). If it can't come up, ask the user to relaunch.
+            model?.relaunchRequired = (attemptKeyTap?() == false)
         }
         model?.handleGranted(kind)
         // A grant means the user just finished in the native dialog or in System
@@ -720,9 +765,10 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         let model = OnboardingViewModel(permissions: permissions)
         self.model = model
 
-        let root = OnboardingWizardView(model: model, onClose: { [weak self] in
-            self?.window?.close()
-        })
+        let root = OnboardingWizardView(
+            model: model,
+            onClose: { [weak self] in self?.window?.close() },
+            onRelaunch: { [weak self] in self?.relaunchApp() })
         let hosting = NSHostingView(rootView: root)
 
         let win = NSWindow(

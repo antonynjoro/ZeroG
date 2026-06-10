@@ -34,6 +34,10 @@ final class KeyMonitor {
     /// (e.g. the Input-Monitoring grant retry) leaking a second tap + a duplicate
     /// trigger-key observer.
     private(set) var isRunning = false
+    /// Throttles the tap-creation failure log to once per failing streak — the
+    /// onboarding poll calls `start()` every second while Input Monitoring is
+    /// still missing, which would otherwise flood the log.
+    private var didLogTapFailure = false
     private var triggerKey: TriggerKey = Config.triggerKey
     private var isTriggerKeyPressed = false
     private var isQPressedDuringSession = false
@@ -103,6 +107,8 @@ final class KeyMonitor {
             },
             userInfo: refcon
         ) else {
+            guard !didLogTapFailure else { return false }
+            didLogTapFailure = true
             let processName = ProcessInfo.processInfo.processName
             let parentApp = Bundle.main.bundleIdentifier ?? "this app"
             Log.error("KeyMonitor", """
@@ -137,6 +143,7 @@ final class KeyMonitor {
         )
 
         isRunning = true
+        didLogTapFailure = false
         Log.debug("KeyMonitor", "Event tap installed. Monitoring \(triggerKey.displayName) key.")
         return true
     }

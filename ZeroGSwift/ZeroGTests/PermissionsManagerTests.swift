@@ -104,6 +104,41 @@ struct PermissionsManagerTests {
         #expect(fired == false)
     }
 
+    // MARK: markGranted (sticky override)
+
+    @Test("markGranted flips status and fires the callback once")
+    func markGrantedFires() {
+        let manager = PermissionsManager(checker: FakePermissionChecker())
+        var fired: [PermissionKind] = []
+        manager.onPermissionGranted = { fired.append($0) }
+        manager.markGranted(.inputMonitoring)
+        #expect(manager.status(for: .inputMonitoring) == .granted)
+        #expect(fired == [.inputMonitoring])
+        // Idempotent: already granted → no second callback.
+        manager.markGranted(.inputMonitoring)
+        #expect(fired == [.inputMonitoring])
+    }
+
+    @Test("A marked grant survives a refresh whose checker still reports denied")
+    func markGrantedIsSticky() {
+        // Simulates CGPreflight caching false after the tap actually installed.
+        let checker = FakePermissionChecker()   // inputMonitoring stays .denied
+        let manager = PermissionsManager(checker: checker)
+        manager.markGranted(.inputMonitoring)
+        manager.refresh()
+        #expect(manager.status(for: .inputMonitoring) == .granted)
+    }
+
+    @Test("onRefresh fires on each refresh tick")
+    func onRefreshFires() {
+        let manager = PermissionsManager(checker: FakePermissionChecker())
+        var ticks = 0
+        manager.onRefresh = { ticks += 1 }
+        manager.refresh()
+        manager.refresh()
+        #expect(ticks == 2)
+    }
+
     // MARK: Requesting
 
     @Test("request routes through the checker and refreshes")
