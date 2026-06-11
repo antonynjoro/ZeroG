@@ -36,7 +36,7 @@ private extension Color {
 
 // MARK: - Steps
 
-/// The six wizard screens, in order. The `rawValue` is also the progress index.
+/// The five wizard screens, in order. The `rawValue` is also the progress index.
 enum OnboardingStep: Int, CaseIterable {
     case welcome
     case microphone
@@ -70,10 +70,6 @@ final class OnboardingViewModel: ObservableObject {
     /// Set when Accessibility was granted but the key tap could not be created
     /// live — the step then asks the user to relaunch.
     @Published var relaunchRequired = false
-    /// True once the user has opened Settings for Accessibility; gates the
-    /// per-tick tap-liveness probe so it doesn't fire (or surface relaunch) before
-    /// the user has had a chance to enable the toggle.
-    @Published var accessibilityAttempted = false
 
     let permissions: PermissionsManager
 
@@ -139,10 +135,10 @@ final class OnboardingViewModel: ObservableObject {
     /// listed with a toggle when the user arrives, no "+ and hunt" friction.
     func requestAndOpenSettings(for step: OnboardingStep) {
         guard let kind = step.permission else { return }
-        if kind == .accessibility { accessibilityAttempted = true }
         // request() (AXIsProcessTrustedWithOptions prompt) pre-lists ZeroG in the
-        // Accessibility pane so the toggle is already there. The fresh tap probe
-        // that confirms the grant runs on the poll, never here.
+        // Accessibility pane so the toggle is already there. Grant detection is the
+        // 1s poll reading AXIsProcessTrusted — never the tap (tapCreate can succeed
+        // with events withheld, so it proves nothing about the grant).
         permissions.request(kind)
         permissions.openSettings(for: kind)
     }
@@ -658,7 +654,7 @@ struct OnboardingWizardView: View {
         case .welcome:
             VStack(spacing: 0) {
                 PrimaryButton(title: "Get started") { model.advance() }.riseIn(0.30)
-                Text("Three quick permissions. About a minute.")
+                Text("Two quick permissions. About a minute.")
                     .font(.system(size: 11)).foregroundColor(OB.textFaint)
                     .padding(.top, 12).riseIn(0.36)
             }
@@ -691,16 +687,18 @@ struct OnboardingWizardView: View {
 
     @ViewBuilder private var settingsFooter: some View {
         let granted = model.step.permission.map { model.permissions.status(for: $0) == .granted } ?? false
-        if granted {
-            PrimaryButton(title: "Continue") { model.advance() }.riseIn(0.30)
-        } else if model.step == .accessibility && model.relaunchRequired {
-            // The running process can't adopt the fresh grant — relaunch is the fix.
+        // relaunchRequired must win over granted: it's set precisely when AX reports
+        // granted but the tap can't come up, so checking granted first would show
+        // "Continue" into a dead hotkey and the relaunch affordance could never render.
+        if model.step == .accessibility && model.relaunchRequired {
             VStack(spacing: 0) {
                 PrimaryButton(title: "Relaunch ZeroG") { onRelaunch() }.riseIn(0.30)
                 Text("Accessibility is on, but ZeroG needs a restart to use it.")
                     .font(.system(size: 11)).foregroundColor(OB.orbit3)
                     .padding(.top, 12).riseIn(0.36)
             }
+        } else if granted {
+            PrimaryButton(title: "Continue") { model.advance() }.riseIn(0.30)
         } else {
             VStack(spacing: 0) {
                 PrimaryButton(title: "Open System Settings") { model.requestAndOpenSettings(for: model.step) }.riseIn(0.30)
@@ -722,9 +720,10 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
     private(set) var model: OnboardingViewModel?
 
-    /// Attempts to install the key tap; returns whether it is now live. Doubles as
-    /// the ground-truth Accessibility probe (AXIsProcessTrusted can cache stale),
-    /// used by the per-tick liveness poll and the grant handler. Wired by the app.
+    /// Tears down any existing key tap and installs a fresh one; returns whether it
+    /// is now live. Used only AFTER an Accessibility grant to bring the hotkey up —
+    /// never as a permission check (tapCreate can succeed with events withheld, so
+    /// its success proves nothing about the grant). Wired by the app.
     var attemptKeyTap: (() -> Bool)?
 
     /// Called after the wizard closes and the app has reverted to `.accessory`.
@@ -763,8 +762,8 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         permissions.startPolling()
     }
 
-    /// Forward a granted permission to the live wizard (auto-advance) and run the
-    /// Input-Monitoring retry. Safe to call when the window is closed (no-op).
+    /// Forward a granted permission to the live wizard (auto-advance); on the
+    /// Accessibility grant, also bring the key tap up. Safe when the window is closed.
     func handlePermissionGranted(_ kind: PermissionKind) {
         if kind == .accessibility {
             // The grant is detected by AXIsProcessTrusted() (the poll) — a real

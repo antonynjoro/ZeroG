@@ -96,39 +96,17 @@ struct PermissionsManagerTests {
         #expect(fired == false)
     }
 
-    // MARK: markGranted (sticky override)
+    // MARK: Revoke self-healing
 
-    @Test("markGranted flips status and fires the callback once")
-    func markGrantedFires() {
-        let manager = PermissionsManager(checker: FakePermissionChecker())
-        var fired: [PermissionKind] = []
-        manager.onPermissionGranted = { fired.append($0) }
-        manager.markGranted(.accessibility)
-        #expect(manager.status(for: .accessibility) == .granted)
-        #expect(fired == [.accessibility])
-        // Idempotent: already granted → no second callback.
-        manager.markGranted(.accessibility)
-        #expect(fired == [.accessibility])
-    }
-
-    @Test("A marked grant survives a refresh whose checker still reports denied")
-    func markGrantedIsSticky() {
-        // Simulates AXIsProcessTrusted caching false after the tap actually installed.
-        let checker = FakePermissionChecker()   // accessibility stays .denied
+    @Test("refresh flips a granted permission back to denied after a revoke")
+    func refreshDetectsRevoke() {
+        let checker = FakePermissionChecker([.accessibility: .granted])
         let manager = PermissionsManager(checker: checker)
-        manager.markGranted(.accessibility)
-        manager.refresh()
         #expect(manager.status(for: .accessibility) == .granted)
-    }
-
-    @Test("onRefresh fires on each refresh tick")
-    func onRefreshFires() {
-        let manager = PermissionsManager(checker: FakePermissionChecker())
-        var ticks = 0
-        manager.onRefresh = { ticks += 1 }
+        checker.statuses[.accessibility] = .denied
         manager.refresh()
-        manager.refresh()
-        #expect(ticks == 2)
+        #expect(manager.status(for: .accessibility) == .denied)
+        #expect(manager.shouldShowOnboarding)
     }
 
     // MARK: Requesting

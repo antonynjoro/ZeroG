@@ -66,9 +66,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
             stateMachine: stateMachine,
             onStartRecording: { [weak self] in
                 guard let self else { return }
-                // The hotkey is live (Input Monitoring granted) but Mic or
-                // Accessibility may still be missing — in that case open the
-                // wizard instead of starting a recording that can't complete.
+                // The hotkey fired, but the Mic grant may still be missing — in
+                // that case open the wizard instead of starting a recording that
+                // can't complete.
                 self.permissionsManager.refresh()
                 if self.permissionsManager.allGranted {
                     self.audioRecorder.startRecording()
@@ -84,12 +84,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         // Permissions + onboarding wizard
         permissionsManager = PermissionsManager()
         onboardingController = OnboardingWindowController(permissions: permissionsManager)
-        // Ground-truth Accessibility probe: tear down any existing tap and try to
-        // install a FRESH one, reporting whether it came up. A fresh create is the
-        // only honest signal — a tap left running from a prior grant would make a
-        // plain start() return true and advance the wizard before the user has
-        // actually approved. (AXIsProcessTrusted can report stale, so the tap is
-        // the reliable live check.)
+        // Bring the key tap up after an Accessibility grant: tear down any existing
+        // tap and install a fresh one, reporting whether it came up. This is NOT a
+        // permission check — tapCreate can succeed with events withheld — it only
+        // ensures the hotkey is wired through the freshly-granted trust.
         onboardingController.attemptKeyTap = { [weak self] in
             guard let self else { return false }
             self.keyMonitor.stop()

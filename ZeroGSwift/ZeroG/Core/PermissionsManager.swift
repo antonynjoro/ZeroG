@@ -117,7 +117,7 @@ final class SystemPermissionChecker: PermissionChecking {
 
 // MARK: - Manager
 
-/// Observable aggregate of the three permission statuses. Drives both launch
+/// Observable aggregate of the two permission statuses. Drives both launch
 /// gating and the onboarding wizard. All `@Published` mutation happens on the
 /// main thread.
 final class PermissionsManager: ObservableObject {
@@ -126,21 +126,11 @@ final class PermissionsManager: ObservableObject {
     @Published private(set) var statuses: [PermissionKind: PermissionStatus]
 
     /// Fired once per permission the moment it flips to `.granted` (during a
-    /// `refresh()`). Used to auto-advance the wizard and retry the key tap.
+    /// `refresh()`). Used to auto-advance the wizard and bring the key tap up.
     var onPermissionGranted: ((PermissionKind) -> Void)?
-
-    /// Called at the end of every `refresh()` tick. Lets the onboarding controller
-    /// run extra liveness probes the checker can't express — notably attempting the
-    /// event tap, since `CGPreflightListenEventAccess()` caches `false` per-process
-    /// and never reports a live Input-Monitoring grant.
-    var onRefresh: (() -> Void)?
 
     private let checker: PermissionChecking
     private var pollTimer: Timer?
-    /// Kinds confirmed granted out-of-band (e.g. the event tap installed). Sticky,
-    /// so a subsequent refresh whose checker still lies (cached preflight) doesn't
-    /// flip them back to denied.
-    private var grantedOverrides: Set<PermissionKind> = []
 
     init(checker: PermissionChecking = SystemPermissionChecker()) {
         self.checker = checker
@@ -179,25 +169,12 @@ final class PermissionsManager: ObservableObject {
     /// Re-read every status; publish the change and fire `onPermissionGranted`
     /// for each permission that newly became granted. Must run on the main thread.
     func refresh() {
-        var updated = Dictionary(uniqueKeysWithValues:
+        let updated = Dictionary(uniqueKeysWithValues:
             PermissionKind.allCases.map { ($0, checker.status(for: $0)) })
-        for kind in grantedOverrides { updated[kind] = .granted }   // sticky confirmations win
+        guard updated != statuses else { return }
         let newlyGranted = Self.newlyGranted(from: statuses, to: updated)
-        if newlyGranted.isEmpty == false || updated != statuses {
-            statuses = updated
-            for kind in newlyGranted { onPermissionGranted?(kind) }
-        }
-        onRefresh?()
-    }
-
-    /// Force a kind to granted out-of-band. Ground truth for Input Monitoring: if
-    /// the event tap actually installs, the permission is effectively granted even
-    /// while `CGPreflightListenEventAccess()` still (wrongly) reports `false`.
-    func markGranted(_ kind: PermissionKind) {
-        grantedOverrides.insert(kind)
-        guard statuses[kind] != .granted else { return }
-        statuses[kind] = .granted
-        onPermissionGranted?(kind)
+        statuses = updated
+        for kind in newlyGranted { onPermissionGranted?(kind) }
     }
 
     /// Pure diff: which kinds went from not-granted to `.granted`. Testable in isolation.
