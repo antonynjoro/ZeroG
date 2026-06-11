@@ -109,23 +109,21 @@ final class AudioRecorder: @unchecked Sendable {
     /// The single entry point for ending a recording session. Every stop trigger
     /// — key release, safety timeout, mid-session trigger-key change, and the
     /// silence cutoff — routes here so the "are we recording? → transition →
-    /// stop" sequence lives in exactly one place. Reads the Gemini flag from the
-    /// session context. Must be called on the main thread (it touches the state
-    /// machine).
+    /// stop" sequence lives in exactly one place. Must be called on the main thread
+    /// (it touches the state machine).
     func beginProcessing() {
         guard stateMachine.currentState == .recording else { return }
-        let useGemini = stateMachine.useGemini
         stateMachine.transition(to: .processing)
-        stopRecording(useGemini: useGemini)
+        stopRecording()
     }
 
     /// Stop capturing audio and trigger transcription of accumulated samples.
     /// Continues recording for a short tail period after key release to capture trailing speech.
-    func stopRecording(useGemini: Bool) {
+    func stopRecording() {
         guard isRecording else { return }
         isRecording = false
 
-        Log.debug("AudioRecorder", "Recording stopping (tail \(Config.recordingTailDuration)s). useGemini=\(useGemini)")
+        Log.debug("AudioRecorder", "Recording stopping (tail \(Config.recordingTailDuration)s).")
 
         DispatchQueue.main.asyncAfter(deadline: .now() + Config.recordingTailDuration) { [weak self] in
             guard let self else { return }
@@ -136,7 +134,7 @@ final class AudioRecorder: @unchecked Sendable {
             let audioData = Self.trimTrailingSilence(rawAudio)
 
             Task.detached { [weak self] in
-                await self?.transcribeAndInject(audioData: audioData, useGemini: useGemini)
+                await self?.transcribeAndInject(audioData: audioData)
             }
         }
     }
@@ -229,8 +227,8 @@ final class AudioRecorder: @unchecked Sendable {
     
     // MARK: - Transcription Pipeline
     
-    /// Transcribe audio data using WhisperKit and inject the result.
-    private func transcribeAndInject(audioData: [Float], useGemini: Bool) async {
+    /// Transcribe audio data on-device and inject the result.
+    private func transcribeAndInject(audioData: [Float]) async {
         guard !audioData.isEmpty else {
             DispatchQueue.main.async { [weak self] in
                 self?.stateMachine.transition(to: .idle)
@@ -256,12 +254,8 @@ final class AudioRecorder: @unchecked Sendable {
                 return
             }
             
-            // Optional Gemini processing
-            var finalText = text
-            if useGemini {
-                finalText = await GeminiService.shared?.process(text) ?? text
-            }
-            
+            let finalText = text
+
             // Store for "Copy Last Transcription" menu item
             DispatchQueue.main.async { [weak self] in
                 self?.stateMachine.lastTranscription = finalText

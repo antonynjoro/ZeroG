@@ -12,9 +12,6 @@ let package = Package(
     dependencies: [
         // WhisperKit: On-device speech recognition via Neural Engine
         .package(url: "https://github.com/argmaxinc/WhisperKit.git", from: "0.9.0"),
-        
-        // Google Generative AI: Optional Gemini API for text polishing
-        .package(url: "https://github.com/google-gemini/generative-ai-swift.git", from: "0.5.0"),
 
         // FluidAudio: SPIKE ONLY (branch spike/fluidaudio-parakeet) — NVIDIA Parakeet TDT
         // on the ANE, evaluated as a possible WhisperKit replacement. Remove if the spike
@@ -26,7 +23,6 @@ let package = Package(
             name: "ZeroG",
             dependencies: [
                 "WhisperKit",
-                .product(name: "GoogleGenerativeAI", package: "generative-ai-swift"),
                 .product(name: "FluidAudio", package: "FluidAudio"), // SPIKE — see deps note
             ],
             path: "ZeroG",

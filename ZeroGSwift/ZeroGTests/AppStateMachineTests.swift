@@ -14,7 +14,6 @@ struct AppStateMachineTests {
             Issue.record("Expected loading state, got \(machine.currentState)")
         }
         #expect(machine.audioLevel == 0.0)
-        #expect(machine.useGemini == false)
     }
     
     @Test("isReady returns true for idle, success, error, needsPermission")
@@ -65,17 +64,15 @@ struct AppStateMachineTests {
         }
     }
 
-    @Test("Session fields can track audio level, transcription, and Gemini mode")
+    @Test("Session fields can track audio level and transcription")
     func sessionFields() {
         let machine = AppStateMachine()
 
         machine.audioLevel = 0.42
         machine.lastTranscription = "hello world"
-        machine.useGemini = true
 
         #expect(machine.audioLevel == 0.42)
         #expect(machine.lastTranscription == "hello world")
-        #expect(machine.useGemini == true)
     }
     
     @Test("Full lifecycle: loading → idle → recording → processing → success → idle")

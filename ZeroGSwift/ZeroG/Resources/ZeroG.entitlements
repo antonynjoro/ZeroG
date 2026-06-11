@@ -10,7 +10,7 @@
     <key>com.apple.security.accessibility</key>
     <true/>
     
-    <!-- Network access for optional Gemini API calls -->
+    <!-- Network access for the one-time on-device speech model download -->
     <key>com.apple.security.network.client</key>
     <true/>
     

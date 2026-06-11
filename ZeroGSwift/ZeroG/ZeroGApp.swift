@@ -41,8 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         NSApp.setActivationPolicy(.accessory)
         
         Config.load()
-        GeminiService.configure()
-        
+
         // Initialize core
         stateMachine = AppStateMachine()
         transcriptionEngine = Self.makeTranscriptionEngine(for: Config.sttBackend)

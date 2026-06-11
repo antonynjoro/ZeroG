@@ -19,25 +19,16 @@ enum Config {
             || UserDefaults.standard.bool(forKey: "DEBUG")
     }
     
-    // MARK: Gemini API
+    // MARK: Text Polish
 
-    /// UserDefaults / environment key under which the Gemini API key is stored.
-    /// Single source of truth — never hardcode this string elsewhere.
-    static let googleAPIKeyDefaultsKey = "GOOGLE_API_KEY"
+    /// Legacy UserDefaults key under which a cloud Gemini API key used to be stored.
+    /// Cloud Gemini was removed in favour of on-device Apple Foundation Models;
+    /// kept only so launch can delete any leftover key (see `Config.load`).
+    static let legacyGoogleAPIKeyDefaultsKey = "GOOGLE_API_KEY"
 
-    /// Google API key for Gemini integration. A key set explicitly via the menu bar
-    /// (stored in UserDefaults) takes precedence over an environment variable.
-    static var googleAPIKey: String? {
-        UserDefaults.standard.string(forKey: googleAPIKeyDefaultsKey)
-            ?? ProcessInfo.processInfo.environment[googleAPIKeyDefaultsKey]
-    }
+    /// Bundle resource (sans extension) holding the polish system prompt.
+    static let polishPromptResource = "polish_prompt"
 
-    /// Gemini model variant used for text polishing.
-    static let geminiModel = "gemini-2.0-flash-exp"
-
-    /// Bundle resource (sans extension) holding the Gemini system prompt.
-    static let geminiPromptResource = "gemini_prompt"
-    
     // MARK: Audio
 
     /// Safety-only silence threshold (RMS amplitude below which is considered true silence).
@@ -171,6 +162,9 @@ extension Config {
     /// Load configuration from `.env` file if present (development convenience).
     static func load() {
         loadDotEnv()
+        // One-time cleanup: cloud Gemini is gone, so purge any API key a previous
+        // version left in UserDefaults (it was the one piece of cloud config).
+        UserDefaults.standard.removeObject(forKey: legacyGoogleAPIKeyDefaultsKey)
     }
     
     // MARK: - Private

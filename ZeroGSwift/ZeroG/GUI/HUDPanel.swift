@@ -3,7 +3,7 @@ import Cocoa
 import Combine
 
 // The ZeroG colour palette (`HUDColors`) and the per-state visual descriptor
-// (`StatePresentation` via `AppState.presentation(useGemini:)`) live in
+// (`StatePresentation` via `AppState.presentation`) live in
 // Core/StatePresentation.swift — the single source of truth this view reads.
 
 // MARK: - HUD SwiftUI View
@@ -64,7 +64,7 @@ struct HUDContentView: View {
 
     /// Per-state visual descriptor — the single source of truth (Core/StatePresentation.swift).
     private var presentation: StatePresentation {
-        stateMachine.currentState.presentation(useGemini: stateMachine.useGemini)
+        stateMachine.currentState.presentation
     }
 
     /// Scale applied to the icon. Animation-driven, so it stays in the view layer

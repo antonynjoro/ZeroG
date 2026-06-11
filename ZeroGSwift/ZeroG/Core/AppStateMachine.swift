@@ -52,14 +52,10 @@ final class AppStateMachine: ObservableObject {
     /// Real-time audio input level (0.0–1.0) for HUD waveform visualization.
     @Published var audioLevel: Float = 0.0
 
-    /// The most recent transcription result, available for manual clipboard copy.
+    /// The most recent transcription result, available for manual clipboard copy
+    /// and the on-device polish action.
     @Published var lastTranscription: String?
 
-    // MARK: Session Context
-    
-    /// Whether the current recording session should use Gemini post-processing.
-    @Published var useGemini: Bool = false
-    
     // MARK: State Transitions
     
     func transition(to newState: AppState) {

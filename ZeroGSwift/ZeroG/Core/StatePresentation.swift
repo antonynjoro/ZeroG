@@ -21,9 +21,9 @@ enum HUDColors {
 
 /// Everything the UI needs to render a given `AppState` — the *single source of
 /// truth* for how a state looks. Adding or changing a state means editing the
-/// `AppState` enum and the one `presentation(useGemini:)` switch below; the menu
-/// bar and HUD read this descriptor instead of each maintaining their own
-/// parallel `switch currentState` blocks.
+/// `AppState` enum and the one `presentation` switch below; the menu bar and HUD
+/// read this descriptor instead of each maintaining their own parallel
+/// `switch currentState` blocks.
 struct StatePresentation {
     /// SF Symbol for the menu bar (template / monochrome).
     let menuSymbol: String
@@ -51,9 +51,8 @@ struct StatePresentation {
 }
 
 extension AppState {
-    /// Build the presentation for this state. `useGemini` only affects the
-    /// recording/processing visuals (polish icon + violet accent).
-    func presentation(useGemini: Bool) -> StatePresentation {
+    /// Build the presentation for this state.
+    var presentation: StatePresentation {
         switch self {
         case .loading:
             return StatePresentation(
@@ -79,7 +78,7 @@ extension AppState {
             return StatePresentation(
                 menuSymbol: "mic.fill",
                 showsHUD: true,
-                hudIconName: useGemini ? "hud-polish" : "hud-recording", iconSize: 42,
+                hudIconName: "hud-recording", iconSize: 42,
                 hudTitle: "ZeroG", titleColor: HUDColors.secondaryText,
                 hudStatus: "RECORDING...", statusColor: HUDColors.voiceTeal,
                 glowColor: HUDColors.voiceTeal,
@@ -87,15 +86,14 @@ extension AppState {
             )
 
         case .processing:
-            let accent = useGemini ? HUDColors.polishViolet : HUDColors.orbitAmber
             return StatePresentation(
                 menuSymbol: "waveform.circle",
                 showsHUD: true,
-                hudIconName: useGemini ? "hud-polish" : "hud-processing", iconSize: 40,
+                hudIconName: "hud-processing", iconSize: 40,
                 hudTitle: "ZeroG", titleColor: HUDColors.secondaryText,
                 hudStatus: "TRANSCRIBING...", statusColor: HUDColors.primaryText,
-                glowColor: accent,
-                borderColor: accent.opacity(0.28)
+                glowColor: HUDColors.orbitAmber,
+                borderColor: HUDColors.orbitAmber.opacity(0.28)
             )
 
         case .success:

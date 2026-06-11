@@ -14,7 +14,6 @@ final class StatusBarController {
     /// hotkey can't fire). Hidden once the tap is live.
     private var hotkeyDisabledMenuItem: NSMenuItem!
     private var copyTranscriptionMenuItem: NSMenuItem!
-    private var geminiMenuItem: NSMenuItem!
     private var triggerKeySubmenu: NSMenu!
     private var cancellables = Set<AnyCancellable>()
 
@@ -65,18 +64,6 @@ final class StatusBarController {
         setupItem.target = self
         menu.addItem(setupItem)
 
-        menu.addItem(NSMenuItem.separator())
-
-        // Gemini API key
-        let geminiTitle = geminiMenuTitle()
-        geminiMenuItem = NSMenuItem(
-            title: geminiTitle,
-            action: #selector(showGeminiKeyDialog),
-            keyEquivalent: ""
-        )
-        geminiMenuItem.target = self
-        menu.addItem(geminiMenuItem)
-        
         menu.addItem(NSMenuItem.separator())
 
         // Record Key submenu
@@ -145,8 +132,7 @@ final class StatusBarController {
         statusMenuItem.title = state.statusText
 
         // Menu symbol comes from the single state-presentation source of truth.
-        // The symbol is independent of Gemini mode, so the flag is irrelevant here.
-        let symbolName = state.presentation(useGemini: false).menuSymbol
+        let symbolName = state.presentation.menuSymbol
 
         if let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "ZeroG Status") {
             let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
@@ -181,49 +167,6 @@ final class StatusBarController {
         hotkeyDisabledMenuItem.isHidden = hotkeyLive
     }
 
-    // MARK: - Gemini Key Dialog
-    
-    private func geminiMenuTitle() -> String {
-        if let preview = GeminiService.storedKeyPreview {
-            return "Gemini API Key: \(preview)"
-        }
-        return "Set Gemini API Key..."
-    }
-    
-    @objc private func showGeminiKeyDialog() {
-        // Bring app to front for the dialog
-        NSApp.activate(ignoringOtherApps: true)
-        
-        let alert = NSAlert()
-        alert.messageText = "Gemini API Key"
-        alert.informativeText = "Enter your Google Gemini API key.\nThis enables grammar correction when you hold \(Config.triggerKey.displayName)+Q while recording.\n\nGet a key at: ai.google.dev"
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Cancel")
-        
-        // Add text field
-        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
-        input.placeholderString = "AIza..."
-        
-        // Pre-fill with existing key if available
-        if let existing = UserDefaults.standard.string(forKey: Config.googleAPIKeyDefaultsKey) {
-            input.stringValue = existing
-        }
-        
-        alert.accessoryView = input
-        alert.window.initialFirstResponder = input
-        
-        let response = alert.runModal()
-        
-        if response == .alertFirstButtonReturn {
-            let key = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !key.isEmpty {
-                GeminiService.configure(apiKey: key)
-                geminiMenuItem.title = geminiMenuTitle()
-            }
-        }
-    }
-    
     // MARK: - Copy Last Transcription
     
     @objc private func copyLastTranscription() {

@@ -4,8 +4,6 @@ import CoreGraphics
 
 // MARK: - Key Codes
 
-private let qKeyCode: CGKeyCode = 12
-
 // MARK: - Key Monitor
 
 /// Monitors global keyboard events using a CGEvent tap.
@@ -22,8 +20,7 @@ final class KeyMonitor {
 
     private let stateMachine: AppStateMachine
     private let onStartRecording: () -> Void
-    /// Requests that recording end and processing begin. The Gemini flag is read
-    /// from the shared session context downstream, so no argument is needed.
+    /// Requests that recording end and processing begin.
     private let onStopRecording: () -> Void
 
     // MARK: State
@@ -39,7 +36,6 @@ final class KeyMonitor {
     private var didLogTapFailure = false
     private var triggerKey: TriggerKey = Config.triggerKey
     private var isTriggerKeyPressed = false
-    private var isQPressedDuringSession = false
     private var recordingStartTime: Date?
 
     /// Safety timeout to prevent stuck recording state (2 minutes).
@@ -210,19 +206,6 @@ final class KeyMonitor {
                 triggerReleased()
             }
         }
-
-        // Handle keyDown events (detect Q while trigger key is held)
-        if type == .keyDown {
-            let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-
-            if isTriggerKeyPressed && keyCode == Int64(qKeyCode) && !isQPressedDuringSession {
-                isQPressedDuringSession = true
-                DispatchQueue.main.async { [weak self] in
-                    self?.stateMachine.useGemini = true
-                }
-                Log.debug("KeyMonitor", "✅ Q pressed during \(triggerKey.displayName) session — Gemini mode activated")
-            }
-        }
     }
 
     // MARK: - Trigger Key Actions
@@ -241,8 +224,6 @@ final class KeyMonitor {
 
             switch state {
             case .idle, .success, .error, .needsPermission:
-                self.isQPressedDuringSession = false
-                self.stateMachine.useGemini = false
                 self.recordingStartTime = Date()
                 self.stateMachine.transition(to: .recording)
                 self.onStartRecording()
