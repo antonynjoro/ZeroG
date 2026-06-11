@@ -753,7 +753,9 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         guard model.accessibilityAttempted,
               permissions.status(for: .accessibility) != .granted else { return }
 
-        if attemptKeyTap?() == true {
+        let live = (attemptKeyTap?() == true)
+        Log.error("Permissions", "poll: accessibility AX=\(permissions.status(for: .accessibility)) freshTapLive=\(live)")
+        if live {
             tapFailStreak = 0
             permissions.markGranted(.accessibility)
         } else {
