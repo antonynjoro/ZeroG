@@ -113,6 +113,41 @@ if [ -n "$SIGN_IDENTITY" ] && [ -n "$NOTARY_PROFILE" ]; then
     xcrun stapler validate "$APP_BUNDLE"
     rm -f "$ZIP_PATH"
     echo "  ✅ Notarized and stapled — ready for public distribution."
+
+    # 10. Website DMG (release builds only): drag-to-Applications disk image
+    # wrapped around the STAPLED app, with the branded background. create-dmg
+    # signs the dmg, notarizes it (second notary round-trip, for the dmg
+    # itself), and staples it.
+    if command -v create-dmg >/dev/null 2>&1; then
+        echo "💿 Building $APP_NAME.dmg…"
+        DMG_PATH="$BUILD_DIR/$APP_NAME.dmg"
+        DMG_STAGING="$BUILD_DIR/dmg-staging"
+        rm -rf "$DMG_STAGING" "$DMG_PATH"
+        mkdir -p "$DMG_STAGING"
+        cp -R "$APP_BUNDLE" "$DMG_STAGING/"
+
+        # Icon coordinates must match the halos in dmg-assets/dmg-background.svg.
+        create-dmg \
+            --volname "$APP_NAME" \
+            --volicon "$APP_BUNDLE/Contents/Resources/ZeroG.icns" \
+            --background "$SCRIPT_DIR/dmg-assets/dmg-background.tiff" \
+            --window-pos 200 150 \
+            --window-size 660 400 \
+            --icon-size 128 \
+            --icon "$APP_NAME.app" 165 195 \
+            --app-drop-link 495 195 \
+            --hide-extension "$APP_NAME.app" \
+            --no-internet-enable \
+            --codesign "$SIGN_IDENTITY" \
+            --notarize "$NOTARY_PROFILE" \
+            "$DMG_PATH" \
+            "$DMG_STAGING"
+
+        rm -rf "$DMG_STAGING"
+        echo "  ✅ $APP_NAME.dmg signed, notarized, stapled: $DMG_PATH"
+    else
+        echo "⚠️  create-dmg not installed (brew install create-dmg) — skipping the website DMG."
+    fi
 elif [ -n "$SIGN_IDENTITY" ]; then
     echo "ℹ️  Signed but not notarized (set ZEROG_NOTARY_PROFILE to notarize)."
 fi
@@ -127,8 +162,5 @@ echo ""
 echo "To install (copy to Applications):"
 echo "  cp -R $APP_BUNDLE /Applications/"
 echo ""
-echo "⚠️  First launch: macOS will ask for permissions."
-echo "   Grant 'ZeroG' access in:"
-echo "   • System Settings → Privacy & Security → Input Monitoring"
-echo "   • System Settings → Privacy & Security → Accessibility"
-echo "   • System Settings → Privacy & Security → Microphone"
+echo "ℹ️  First launch: the built-in onboarding wizard walks users through the"
+echo "   two required permissions (Microphone + Accessibility)."

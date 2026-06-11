@@ -1,0 +1,62 @@
+<svg width="660" height="400" viewBox="0 0 660 400" xmlns="http://www.w3.org/2000/svg">
+  <!-- DMG window background. Icon anchors (set in build_app.sh): ZeroG.app at
+       (165,195), Applications drop-link at (495,195), icon size 128. The arrow
+       and halos below are aligned to those coordinates. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="400" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#23262F"/>
+      <stop offset="1" stop-color="#1E2129"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.1" r="0.9">
+      <stop stop-color="#5EEAD4" stop-opacity="0.06"/>
+      <stop offset="0.6" stop-color="#5EEAD4" stop-opacity="0.015"/>
+      <stop offset="1" stop-color="#5EEAD4" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="orbit" x1="240" y1="195" x2="420" y2="195" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#19D7DE"/>
+      <stop offset="0.48" stop-color="#8C5CFF"/>
+      <stop offset="1" stop-color="#FFB23F"/>
+    </linearGradient>
+    <linearGradient id="orbitWide" x1="40" y1="195" x2="620" y2="195" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#19D7DE"/>
+      <stop offset="0.48" stop-color="#8C5CFF"/>
+      <stop offset="1" stop-color="#FFB23F"/>
+    </linearGradient>
+  </defs>
+
+  <!-- field -->
+  <rect width="660" height="400" fill="url(#bg)"/>
+  <rect width="660" height="400" fill="url(#glow)"/>
+
+  <!-- wide orbit sweep passing behind both icon positions -->
+  <path d="M30 260 C 140 150, 280 150, 330 205 C 380 260, 520 260, 630 150"
+        stroke="url(#orbitWide)" stroke-width="3" stroke-linecap="round"
+        fill="none" opacity="0.16"/>
+
+  <!-- soft halos under the two icon anchors -->
+  <circle cx="165" cy="195" r="86" fill="#5EEAD4" opacity="0.035"/>
+  <circle cx="165" cy="195" r="86" fill="none" stroke="#5EEAD4" stroke-opacity="0.10" stroke-width="1"/>
+  <circle cx="495" cy="195" r="86" fill="#FFB23F" opacity="0.03"/>
+  <circle cx="495" cy="195" r="86" fill="none" stroke="#FFB23F" stroke-opacity="0.09" stroke-width="1"/>
+
+  <!-- gradient guide arrow between the anchors -->
+  <path d="M262 195 H 384" stroke="url(#orbit)" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <path d="M376 178 L 400 195 L 376 212" stroke="#FFB23F" stroke-width="5"
+        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- wordmark + tagline -->
+  <text x="330" y="64" text-anchor="middle"
+        font-family="Helvetica Neue" font-size="26" font-weight="bold"
+        fill="#F4EFE6" letter-spacing="0.5">ZeroG</text>
+  <text x="330" y="86" text-anchor="middle"
+        font-family="Helvetica Neue" font-size="12.5"
+        fill="#9AA3B2">Voice typing, anywhere</text>
+
+  <!-- install caption -->
+  <text x="330" y="340" text-anchor="middle"
+        font-family="Helvetica Neue" font-size="14" font-weight="500"
+        fill="#AEB6C4">Drag ZeroG into Applications to install</text>
+  <text x="330" y="362" text-anchor="middle"
+        font-family="Helvetica Neue" font-size="11"
+        fill="#6B7484">Runs entirely on your Mac. Your audio never leaves it.</text>
+</svg>

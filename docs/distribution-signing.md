@@ -104,10 +104,14 @@ unzip, drag to Applications, and open with no Gatekeeper warning.
 
 ## Distributing on the website
 
-Ship a **zip** of the stapled `.app` (`ditto -c -k --keepParent ZeroG.app
-ZeroG.zip`), or a signed/notarized `.dmg` if you want the drag-to-Applications
-window. Either way the artifact must be the **stapled** bundle from a full
-release build.
+**Ship `build/ZeroG.dmg`** — the release build produces it automatically: a
+branded drag-to-Applications disk image (background from
+`ZeroGSwift/dmg-assets/dmg-background.svg`, regenerate via `rsvg-convert` +
+`tiffutil -cathidpicheck` if the design changes) wrapped around the stapled
+`.app`, itself signed, notarized, and stapled. Requires `create-dmg`
+(`brew install create-dmg`, build-time only); the script skips the DMG with a
+warning if it's missing. A zip of the stapled `.app` (`ditto -c -k
+--keepParent`) remains a fallback artifact.
 
 > First launch walks users through granting **Microphone** and **Accessibility**
 > via the built-in onboarding wizard (only those two — Accessibility also covers
