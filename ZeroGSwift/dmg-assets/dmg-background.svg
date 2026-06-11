@@ -1,62 +1,66 @@
-<svg width="660" height="400" viewBox="0 0 660 400" xmlns="http://www.w3.org/2000/svg">
+<svg width="660" height="500" viewBox="0 0 660 500" xmlns="http://www.w3.org/2000/svg">
   <!-- DMG window background. Icon anchors (set in build_app.sh): ZeroG.app at
-       (165,195), Applications drop-link at (495,195), icon size 128. The arrow
-       and halos below are aligned to those coordinates. -->
+       (165,225), Applications drop-link at (495,225), icon size 128.
+       Crop-proofing: the cream fills the full 500px image, but every design
+       element sits inside a safe band (≤ y455) so that whatever the Finder
+       content area actually is (title-bar height varies), any clipped strip at
+       the bottom is blank cream — invisible. The image is shown 1:1 (Finder does
+       not scale DMG backgrounds), so the glows stay centred on their icons.
+       Light/cream theme → Finder draws dark labels. -->
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="400" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#23262F"/>
-      <stop offset="1" stop-color="#1E2129"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="500" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FBF7EE"/>
+      <stop offset="1" stop-color="#EFE7D7"/>
     </linearGradient>
-    <radialGradient id="glow" cx="0.5" cy="0.1" r="0.9">
-      <stop stop-color="#5EEAD4" stop-opacity="0.06"/>
-      <stop offset="0.6" stop-color="#5EEAD4" stop-opacity="0.015"/>
-      <stop offset="1" stop-color="#5EEAD4" stop-opacity="0"/>
+    <radialGradient id="haloTeal" cx="0.5" cy="0.5" r="0.5">
+      <stop stop-color="#19D7DE" stop-opacity="0.30"/>
+      <stop offset="0.4" stop-color="#19D7DE" stop-opacity="0.12"/>
+      <stop offset="0.72" stop-color="#19D7DE" stop-opacity="0.035"/>
+      <stop offset="1" stop-color="#19D7DE" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="orbit" x1="240" y1="195" x2="420" y2="195" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#19D7DE"/>
-      <stop offset="0.48" stop-color="#8C5CFF"/>
-      <stop offset="1" stop-color="#FFB23F"/>
-    </linearGradient>
-    <linearGradient id="orbitWide" x1="40" y1="195" x2="620" y2="195" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#19D7DE"/>
-      <stop offset="0.48" stop-color="#8C5CFF"/>
-      <stop offset="1" stop-color="#FFB23F"/>
+    <radialGradient id="haloAmber" cx="0.5" cy="0.5" r="0.5">
+      <stop stop-color="#FFB23F" stop-opacity="0.30"/>
+      <stop offset="0.4" stop-color="#FFB23F" stop-opacity="0.13"/>
+      <stop offset="0.72" stop-color="#FFB23F" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#FFB23F" stop-opacity="0"/>
+    </radialGradient>
+    <!-- gradient spans the hand-drawn arrow's local (pre-transform) bbox -->
+    <linearGradient id="orbit" x1="2.5" y1="38" x2="502" y2="38" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#11B8C0"/>
+      <stop offset="0.5" stop-color="#7B4DF0"/>
+      <stop offset="1" stop-color="#F59E1E"/>
     </linearGradient>
   </defs>
 
-  <!-- field -->
-  <rect width="660" height="400" fill="url(#bg)"/>
-  <rect width="660" height="400" fill="url(#glow)"/>
+  <!-- cream field (fills the whole image; bottom margin absorbs any clip) -->
+  <rect width="660" height="500" fill="url(#bg)"/>
 
-  <!-- wide orbit sweep passing behind both icon positions -->
-  <path d="M30 260 C 140 150, 280 150, 330 205 C 380 260, 520 260, 630 150"
-        stroke="url(#orbitWide)" stroke-width="3" stroke-linecap="round"
-        fill="none" opacity="0.16"/>
+  <!-- feathered glows from the centre of each icon outward (no hard edge) -->
+  <circle cx="165" cy="225" r="132" fill="url(#haloTeal)"/>
+  <circle cx="495" cy="225" r="132" fill="url(#haloAmber)"/>
 
-  <!-- soft halos under the two icon anchors -->
-  <circle cx="165" cy="195" r="86" fill="#5EEAD4" opacity="0.035"/>
-  <circle cx="165" cy="195" r="86" fill="none" stroke="#5EEAD4" stroke-opacity="0.10" stroke-width="1"/>
-  <circle cx="495" cy="195" r="86" fill="#FFB23F" opacity="0.03"/>
-  <circle cx="495" cy="195" r="86" fill="none" stroke="#FFB23F" stroke-opacity="0.09" stroke-width="1"/>
+  <!-- whimsical hand-drawn guide arrow, orbit-gradient stroke, nestled in the
+       gap centred at (330,225). The group scales the supplied 505x76 artwork. -->
+  <g transform="translate(236.6 210.9) scale(0.37)">
+    <path d="M2.5 60.9542C129.625 -67.5073 290.433 146.72 380.102 44.4308C417.617 1.63559 341.014 -11.996 323.225 20.4751C310.102 44.4308 343.375 55.2101 354.157 56.1356C402.681 60.301 446.707 33.1494 493.914 29.7159"
+          stroke="url(#orbit)" stroke-width="8" stroke-linecap="round" fill="none"/>
+    <path d="M473.596 18.6987C481.598 25.1399 488.118 26.5296 502.102 26.4306C491.385 32.459 484.406 38.7081 479.102 49.2878"
+          stroke="#F59E1E" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
 
-  <!-- gradient guide arrow between the anchors -->
-  <path d="M262 195 H 384" stroke="url(#orbit)" stroke-width="5" stroke-linecap="round" fill="none"/>
-  <path d="M376 178 L 400 195 L 376 212" stroke="#FFB23F" stroke-width="5"
-        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-
-  <!-- wordmark + tagline -->
-  <text x="330" y="64" text-anchor="middle"
-        font-family="Helvetica Neue" font-size="26" font-weight="bold"
-        fill="#F4EFE6" letter-spacing="0.5">ZeroG</text>
-  <text x="330" y="86" text-anchor="middle"
+  <!-- wordmark + tagline (dark on cream) -->
+  <text x="330" y="74" text-anchor="middle"
+        font-family="Helvetica Neue" font-size="27" font-weight="bold"
+        fill="#23262F" letter-spacing="0.5">ZeroG</text>
+  <text x="330" y="97" text-anchor="middle"
         font-family="Helvetica Neue" font-size="12.5"
-        fill="#9AA3B2">Voice typing, anywhere</text>
+        fill="#6B7280">Voice typing, anywhere</text>
 
-  <!-- install caption -->
-  <text x="330" y="340" text-anchor="middle"
+  <!-- install caption (kept inside the safe band, well above any clip) -->
+  <text x="330" y="430" text-anchor="middle"
         font-family="Helvetica Neue" font-size="14" font-weight="500"
-        fill="#AEB6C4">Drag ZeroG into Applications to install</text>
-  <text x="330" y="362" text-anchor="middle"
+        fill="#3A3F4A">Drag ZeroG into Applications to install</text>
+  <text x="330" y="452" text-anchor="middle"
         font-family="Helvetica Neue" font-size="11"
-        fill="#6B7484">Runs entirely on your Mac. Your audio never leaves it.</text>
+        fill="#8C8676">Runs entirely on your Mac. Your audio never leaves it.</text>
 </svg>

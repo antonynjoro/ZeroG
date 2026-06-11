@@ -132,10 +132,10 @@ if [ -n "$SIGN_IDENTITY" ] && [ -n "$NOTARY_PROFILE" ]; then
             --volicon "$APP_BUNDLE/Contents/Resources/ZeroG.icns" \
             --background "$SCRIPT_DIR/dmg-assets/dmg-background.tiff" \
             --window-pos 200 150 \
-            --window-size 660 400 \
+            --window-size 660 520 \
             --icon-size 128 \
-            --icon "$APP_NAME.app" 165 195 \
-            --app-drop-link 495 195 \
+            --icon "$APP_NAME.app" 165 225 \
+            --app-drop-link 495 225 \
             --hide-extension "$APP_NAME.app" \
             --no-internet-enable \
             --codesign "$SIGN_IDENTITY" \
