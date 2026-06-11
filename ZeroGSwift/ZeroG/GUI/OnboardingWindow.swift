@@ -792,9 +792,14 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     /// Input-Monitoring retry. Safe to call when the window is closed (no-op).
     func handlePermissionGranted(_ kind: PermissionKind) {
         if kind == .accessibility {
-            // Accessibility authorizes the key tap — bring it up now. If it can't
-            // come up live, ask the user to relaunch.
-            model?.relaunchRequired = (attemptKeyTap?() == false)
+            // AXIsProcessTrusted() reports a stale `true` after a revoke (the
+            // running process never sees it turn off), so a status flip alone is
+            // not trustworthy. Only advance when a FRESH tap actually installs —
+            // the honest "Accessibility is live right now" signal. Otherwise stay
+            // on the step; the poll keeps probing until the toggle is really on.
+            let live = (attemptKeyTap?() == true)
+            Log.error("Permissions", "Accessibility grant signal — fresh key tap live=\(live)")
+            guard live else { return }
         }
         model?.handleGranted(kind)
         // A grant means the user just finished in the native dialog or in System
