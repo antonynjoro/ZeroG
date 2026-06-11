@@ -33,11 +33,6 @@ final class AudioRecorder: @unchecked Sendable {
     private let stateMachine: AppStateMachine
     private let transcriptionEngine: Transcribing
 
-    /// SPIKE (spike/fluidaudio-parakeet): handed the exact 16 kHz buffer about to be
-    /// transcribed, so the backend comparator can re-run the SAME audio through every
-    /// engine (removes the re-recording confound). No effect on normal transcription.
-    var onCapturedAudio: (([Float]) -> Void)?
-
     // MARK: Audio Engine
     
     private let audioEngine = AVAudioEngine()
@@ -243,9 +238,6 @@ final class AudioRecorder: @unchecked Sendable {
             return
         }
         
-        // SPIKE: stash this exact buffer for the backend comparator (no-op in normal use).
-        onCapturedAudio?(audioData)
-
         do {
             let startTime = CFAbsoluteTimeGetCurrent()
 

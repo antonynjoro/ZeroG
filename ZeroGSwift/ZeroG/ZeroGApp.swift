@@ -35,10 +35,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     private var permissionsManager: PermissionsManager!
     private var onboardingController: OnboardingWindowController!
 
-    /// SPIKE (spike/fluidaudio-parakeet): the most recent captured audio buffer, fed to the
-    /// backend comparator so every engine sees identical audio.
-    private var lastCapturedBuffer: [Float] = []
-
     // MARK: Application Lifecycle
     
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -57,11 +53,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
             transcriptionEngine: transcriptionEngine
         )
 
-        // SPIKE: remember the last buffer so the backend comparator can re-run it.
-        audioRecorder.onCapturedAudio = { [weak self] buffer in
-            self?.lastCapturedBuffer = buffer
-        }
-        
         keyMonitor = KeyMonitor(
             stateMachine: stateMachine,
             onStartRecording: { [weak self] in
@@ -122,7 +113,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         // Initialize GUI
         statusBarController = StatusBarController(
             stateMachine: stateMachine,
-            onRunBackendComparison: { [weak self] in self?.runBackendComparison() },
             onShowPermissions: { [weak self] in self?.onboardingController.show() }
         )
         hudController = HUDPanelController(stateMachine: stateMachine)
@@ -198,14 +188,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         case .whisper:    return TranscriptionEngine()
         case .parakeetV2: return ParakeetTranscriptionEngine(variant: .v2)
         case .parakeetV3: return ParakeetTranscriptionEngine(variant: .v3)
-        }
-    }
-
-    /// SPIKE: run the last captured recording through every backend and log the comparison.
-    private func runBackendComparison() {
-        let buffer = lastCapturedBuffer
-        Task.detached {
-            await BackendComparator.compare(buffer: buffer)
         }
     }
 }
