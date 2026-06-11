@@ -10,6 +10,9 @@ final class StatusBarController {
     
     private var statusItem: NSStatusItem!
     private var statusMenuItem: NSMenuItem!
+    /// Shown only while the key tap is dead (Accessibility missing, so the
+    /// hotkey can't fire). Hidden once the tap is live.
+    private var hotkeyDisabledMenuItem: NSMenuItem!
     private var copyTranscriptionMenuItem: NSMenuItem!
     private var geminiMenuItem: NSMenuItem!
     private var triggerKeySubmenu: NSMenu!
@@ -23,11 +26,17 @@ final class StatusBarController {
     /// SPIKE (spike/fluidaudio-parakeet): invoked by the "Compare STT backends" menu item.
     private let onRunBackendComparison: () -> Void
 
+    /// Opens the permissions / setup wizard.
+    private let onShowPermissions: () -> Void
+
     // MARK: Initialization
 
-    init(stateMachine: AppStateMachine, onRunBackendComparison: @escaping () -> Void = {}) {
+    init(stateMachine: AppStateMachine,
+         onRunBackendComparison: @escaping () -> Void = {},
+         onShowPermissions: @escaping () -> Void = {}) {
         self.stateMachine = stateMachine
         self.onRunBackendComparison = onRunBackendComparison
+        self.onShowPermissions = onShowPermissions
 
         setupStatusItem()
         observeState()
@@ -44,9 +53,26 @@ final class StatusBarController {
         statusMenuItem = NSMenuItem(title: "Starting up...", action: nil, keyEquivalent: "")
         statusMenuItem.isEnabled = false
         menu.addItem(statusMenuItem)
-        
+
+        // Hotkey-disabled warning (hidden unless the key tap is dead — Accessibility missing)
+        hotkeyDisabledMenuItem = NSMenuItem(title: "Hotkey disabled — open Setup", action: nil, keyEquivalent: "")
+        hotkeyDisabledMenuItem.isEnabled = false
+        hotkeyDisabledMenuItem.isHidden = true
+        menu.addItem(hotkeyDisabledMenuItem)
+
         menu.addItem(NSMenuItem.separator())
-        
+
+        // Setup / Permissions wizard
+        let setupItem = NSMenuItem(
+            title: "Setup / Permissions…",
+            action: #selector(showPermissions),
+            keyEquivalent: ""
+        )
+        setupItem.target = self
+        menu.addItem(setupItem)
+
+        menu.addItem(NSMenuItem.separator())
+
         // Gemini API key
         let geminiTitle = geminiMenuTitle()
         geminiMenuItem = NSMenuItem(
@@ -200,6 +226,18 @@ final class StatusBarController {
 
     @objc private func runBackendComparison() {
         onRunBackendComparison()
+    }
+
+    // MARK: - Permissions / Setup
+
+    @objc private func showPermissions() {
+        onShowPermissions()
+    }
+
+    /// Reflect whether the hotkey tap is live. Shows the "Hotkey disabled" line
+    /// in the menu when the key tap isn't running (Accessibility missing).
+    func updateHotkeyStatus(hotkeyLive: Bool) {
+        hotkeyDisabledMenuItem.isHidden = hotkeyLive
     }
 
     // MARK: - Gemini Key Dialog

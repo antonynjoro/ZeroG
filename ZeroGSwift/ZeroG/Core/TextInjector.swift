@@ -1,6 +1,7 @@
 import Foundation
 import Cocoa
 import CoreGraphics
+import ApplicationServices
 
 // MARK: - Text Injector
 
@@ -19,11 +20,25 @@ enum TextInjector {
     /// Inject text into the focused application by pasting from clipboard.
     ///
     /// - Parameter text: The text to inject.
-    static func injectText(_ text: String) {
-        guard !text.isEmpty else { return }
-        
+    /// - Returns: Whether the paste was performed. `false` means Accessibility is
+    ///   missing and NOTHING was touched — the caller owns the fallback (copy to
+    ///   clipboard + `.needsPermission`).
+    @discardableResult
+    static func injectText(_ text: String) -> Bool {
+        guard !text.isEmpty else { return true }   // nothing to paste ≠ permission failure
+
+        // Accessibility preflight — MUST stay above the snapshot. Without trust the
+        // synthetic Cmd+V is dropped and the paste silently fails; if we had already
+        // snapshotted + scheduled the restore, the restore timer would wipe the
+        // caller's fallback copy of the transcript 0.6s later. Bail before touching
+        // the pasteboard so the fallback copy survives.
+        guard AXIsProcessTrusted() else {
+            Log.error("TextInjector", "Paste blocked: Accessibility not granted. Leaving pasteboard untouched.")
+            return false
+        }
+
         let pasteboard = NSPasteboard.general
-        
+
         // 1. Snapshot current clipboard
         let snapshot = snapshotClipboard(pasteboard)
         
@@ -43,6 +58,7 @@ enum TextInjector {
         
         let preview = text.count > 40 ? String(text.prefix(40)) + "..." : text
         Log.debug("TextInjector", "Injected: '\(preview)' (\(text.count) chars)")
+        return true
     }
     
     // MARK: - Clipboard Snapshot / Restore

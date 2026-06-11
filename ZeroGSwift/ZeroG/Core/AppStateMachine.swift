@@ -11,15 +11,21 @@ enum AppState: Equatable {
     case processing
     case success
     case error(String)
-    
+    /// Paste was blocked by a missing permission; the transcript was copied to
+    /// the clipboard instead. LINGERING: never auto-reset — the HUD stays until
+    /// the user acts (clicks it, or starts the next recording).
+    case needsPermission(String)
+
     /// Whether the app is ready to accept recording commands.
+    /// `.needsPermission` is ready on purpose: the next hotkey press must start a
+    /// fresh recording (clearing the lingering HUD), not be swallowed.
     var isReady: Bool {
         switch self {
-        case .idle, .success, .error: return true
+        case .idle, .success, .error, .needsPermission: return true
         default: return false
         }
     }
-    
+
     /// Human-readable status text for the menu bar.
     var statusText: String {
         switch self {
@@ -29,6 +35,7 @@ enum AppState: Equatable {
         case .processing: return "Transcribing..."
         case .success: return "Done ✓"
         case .error(let msg): return "Error: \(msg)"
+        case .needsPermission(let msg): return "Copied to clipboard — \(msg)"
         }
     }
 }

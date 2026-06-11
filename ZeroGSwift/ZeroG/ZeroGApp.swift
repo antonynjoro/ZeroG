@@ -30,6 +30,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     private var statusBarController: StatusBarController!
     private var hudController: HUDPanelController!
 
+    // MARK: Permissions / Onboarding
+
+    private var permissionsManager: PermissionsManager!
+    private var onboardingController: OnboardingWindowController!
+
     /// SPIKE (spike/fluidaudio-parakeet): the most recent captured audio buffer, fed to the
     /// backend comparator so every engine sees identical audio.
     private var lastCapturedBuffer: [Float] = []
@@ -60,23 +65,92 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         keyMonitor = KeyMonitor(
             stateMachine: stateMachine,
             onStartRecording: { [weak self] in
-                self?.audioRecorder.startRecording()
+                guard let self else { return }
+                // The hotkey fired, but the Mic grant may still be missing — in
+                // that case open the wizard instead of starting a recording that
+                // can't complete.
+                self.permissionsManager.refresh()
+                if self.permissionsManager.allGranted {
+                    self.audioRecorder.startRecording()
+                } else {
+                    // KeyMonitor already flipped the state to .recording before
+                    // this callback — undo it, or the HUD sticks on "RECORDING…"
+                    // with no recording running.
+                    self.stateMachine.transition(to: .idle)
+                    self.onboardingController.show()
+                }
             },
             onStopRecording: { [weak self] in
                 self?.audioRecorder.beginProcessing()
             }
         )
         
+        // Permissions + onboarding wizard
+        permissionsManager = PermissionsManager()
+        onboardingController = OnboardingWindowController(permissions: permissionsManager)
+        // Bring the key tap up after an Accessibility grant: tear down any existing
+        // tap and install a fresh one, reporting whether it came up. This is NOT a
+        // permission check — tapCreate can succeed with events withheld — it only
+        // ensures the hotkey is wired through the freshly-granted trust.
+        onboardingController.attemptKeyTap = { [weak self] in
+            guard let self else { return false }
+            self.keyMonitor.stop()
+            return self.keyMonitor.start()
+        }
+        // The wizard switches the app to .regular for a Dock icon; reverting to
+        // .accessory on close leaves the event tap dead. Rebuild it once the
+        // policy has settled so the hotkey survives closing onboarding without a
+        // relaunch.
+        onboardingController.onClose = { [weak self] in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.permissionsManager.refresh()
+                if self.permissionsManager.status(for: .accessibility) == .granted {
+                    self.keyMonitor.stop()
+                    self.keyMonitor.start()
+                }
+                self.statusBarController.updateHotkeyStatus(
+                    hotkeyLive: self.keyMonitor.isRunning)
+            }
+        }
+        permissionsManager.onPermissionGranted = { [weak self] kind in
+            guard let self else { return }
+            self.onboardingController.handlePermissionGranted(kind)
+            self.statusBarController.updateHotkeyStatus(hotkeyLive: self.keyMonitor.isRunning)
+        }
+
         // Initialize GUI
         statusBarController = StatusBarController(
             stateMachine: stateMachine,
-            onRunBackendComparison: { [weak self] in self?.runBackendComparison() }
+            onRunBackendComparison: { [weak self] in self?.runBackendComparison() },
+            onShowPermissions: { [weak self] in self?.onboardingController.show() }
         )
         hudController = HUDPanelController(stateMachine: stateMachine)
-        
-        // Start key monitoring
-        keyMonitor.start()
-        
+
+        // Re-open the wizard whenever an action is blocked by a missing permission
+        // (e.g. paste blocked by Accessibility — posted from the inject path).
+        NotificationCenter.default.addObserver(
+            forName: .permissionsNeeded, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.onboardingController.show()
+        }
+
+        // Permission-gated startup. Read live status, log it, and only install the
+        // key tap if Accessibility is granted (it authorizes the listen-only tap);
+        // surface the wizard if anything is missing. Model download below runs
+        // concurrently regardless.
+        permissionsManager.refresh()
+        logPermissionStatuses()
+
+        if permissionsManager.status(for: .accessibility) == .granted {
+            keyMonitor.start()
+        }
+        statusBarController.updateHotkeyStatus(hotkeyLive: keyMonitor.isRunning)
+
+        if permissionsManager.shouldShowOnboarding {
+            onboardingController.show()
+        }
+
         // Show loading state and download model
         stateMachine.transition(to: .loading("Starting up..."))
         
@@ -105,6 +179,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     
     func applicationWillTerminate(_ notification: Notification) {
         keyMonitor?.stop()
+    }
+
+    /// Log the live permission status for each kind — visible in Console so a
+    /// "wizard didn't appear" report can be diagnosed without reading TCC.db.
+    private func logPermissionStatuses() {
+        for kind in PermissionKind.allCases {
+            Log.error("Permissions", "\(kind.displayName): \(permissionsManager.status(for: kind))")
+        }
     }
 
     // MARK: - STT backend (FluidAudio spike)

@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - [`docs/app-store-readiness-audit.md`](docs/app-store-readiness-audit.md) — Full audit of App Store compliance, production readiness, and maintainability (2026-05-03). Contains the prioritised fix checklist and the rationale for direct-download distribution over Mac App Store submission.
 - [`docs/distribution-signing.md`](docs/distribution-signing.md) — How to sign (Developer ID) and notarize ZeroG for direct download. One-time cert/credential setup plus the `build_app.sh` env-var build modes.
 - [`docs/spikes/fluidaudio-parakeet-spike.md`](docs/spikes/fluidaudio-parakeet-spike.md) — In-progress spike (branch `spike/fluidaudio-parakeet`): evaluating FluidAudio/Parakeet as a replacement for WhisperKit. Cross-session tracking doc with the decision rubric, findings table, and decision log.
+- [`docs/macos-permissions-gotchas.md`](docs/macos-permissions-gotchas.md) — **READ BEFORE touching anything TCC/permissions-related.** Hard-won gotchas: tapCreate succeeding is NOT a permission signal, AXIsProcessTrusted caches true per-process, quit-before-tccutil-reset testing protocol, activation-policy flips kill the event tap, Console logging redaction.
 
 ## After Making Changes
 
@@ -79,9 +80,10 @@ KeyMonitor (CGEvent tap)
 **GUI**: Both `StatusBarController` and `HUDPanelController` are Cocoa-native (not SwiftUI views), subscribing to `AppStateMachine` via Combine `sink`.
 
 ### macOS Permissions Required
-- Input Monitoring (for CGEvent tap)
-- Accessibility (for Cmd+V simulation)
 - Microphone (for AVAudioEngine)
+- Accessibility (for both the listen-only CGEvent key tap AND Cmd+V paste)
+
+Only **two** permissions. Input Monitoring is NOT required: ZeroG's key listener is a listen-only `CGEvent` tap, which an Accessibility-trusted process is already allowed to create — so Accessibility covers both trigger-key detection and paste injection. The guided onboarding wizard (`GUI/OnboardingWindow.swift`) requests exactly these two.
 
 Grant in System Settings → Privacy & Security. If the event tap fails to install, the app logs a detailed instructions message.
 

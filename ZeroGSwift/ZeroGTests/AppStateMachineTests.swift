@@ -17,17 +17,21 @@ struct AppStateMachineTests {
         #expect(machine.useGemini == false)
     }
     
-    @Test("isReady returns true for idle, success, error")
+    @Test("isReady returns true for idle, success, error, needsPermission")
     func isReady() {
         let machine = AppStateMachine()
-        
+
         machine.transition(to: .idle)
         #expect(machine.currentState.isReady == true)
-        
+
         machine.transition(to: .success)
         #expect(machine.currentState.isReady == true)
-        
+
         machine.transition(to: .error("test"))
+        #expect(machine.currentState.isReady == true)
+
+        // The lingering paste-blocked state must NOT swallow the next hotkey press.
+        machine.transition(to: .needsPermission("Grant Accessibility to paste"))
         #expect(machine.currentState.isReady == true)
     }
     
@@ -52,7 +56,8 @@ struct AppStateMachineTests {
             (.recording, "Recording"),
             (.processing, "Transcribing"),
             (.success, "Done"),
-            (.error("Microphone denied"), "Microphone denied")
+            (.error("Microphone denied"), "Microphone denied"),
+            (.needsPermission("Grant Accessibility to paste"), "Copied to clipboard")
         ]
 
         for (state, expectedText) in cases {

@@ -275,12 +275,26 @@ final class AudioRecorder: @unchecked Sendable {
                 self?.stateMachine.lastTranscription = finalText
             }
 
-            // Inject text
-            TextInjector.injectText(finalText)
-            
+            // Inject text. False = Accessibility missing (the injector bailed
+            // before touching the pasteboard) — never show fake success.
+            let injected = TextInjector.injectText(finalText)
+
             DispatchQueue.main.async { [weak self] in
-                self?.stateMachine.transition(to: .success)
-                self?.stateMachine.resetToIdle()
+                guard let self else { return }
+                if injected {
+                    self.stateMachine.transition(to: .success)
+                    self.stateMachine.resetToIdle()
+                } else {
+                    // Keep the transcript safe on the clipboard (no restore timer
+                    // is pending — the injector's guard exits before the snapshot),
+                    // show the lingering HUD, and surface the wizard. NO reset is
+                    // scheduled: .needsPermission stays until the user acts.
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(finalText, forType: .string)
+                    self.stateMachine.transition(to: .needsPermission("grant Accessibility to paste"))
+                    NotificationCenter.default.post(name: .permissionsNeeded, object: nil)
+                }
             }
             
         } catch {

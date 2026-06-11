@@ -30,6 +30,13 @@ final class KeyMonitor {
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
+    /// Whether the tap is currently installed. Guards against a double `start()`
+    /// (e.g. the post-grant retry) leaking a second tap + a duplicate
+    /// trigger-key observer.
+    private(set) var isRunning = false
+    /// Throttles the tap-creation failure log to once per failing streak, so
+    /// repeated retries while Accessibility is missing don't flood the log.
+    private var didLogTapFailure = false
     private var triggerKey: TriggerKey = Config.triggerKey
     private var isTriggerKeyPressed = false
     private var isQPressedDuringSession = false
@@ -58,8 +65,15 @@ final class KeyMonitor {
     // MARK: - Start / Stop
 
     /// Install a CGEvent tap to monitor modifier key changes globally.
-    /// Requires Accessibility permissions (Input Monitoring).
-    func start() {
+    /// Requires Accessibility trust (a trusted process may create listen-only
+    /// taps). Returns whether the tap was created — note tapCreate can succeed
+    /// while events are withheld pending trust, so success is NOT a permission
+    /// check; gate on AXIsProcessTrusted instead. Idempotent: a second call while
+    /// already running is a no-op that reports the existing success.
+    @discardableResult
+    func start() -> Bool {
+        guard !isRunning else { return true }
+
         // Event mask: flagsChanged (modifier keys) + keyDown (to detect Q)
         let eventMask: CGEventMask = (1 << CGEventType.flagsChanged.rawValue) | (1 << CGEventType.keyDown.rawValue)
 
@@ -93,21 +107,22 @@ final class KeyMonitor {
             },
             userInfo: refcon
         ) else {
+            guard !didLogTapFailure else { return false }
+            didLogTapFailure = true
             let processName = ProcessInfo.processInfo.processName
             let parentApp = Bundle.main.bundleIdentifier ?? "this app"
             Log.error("KeyMonitor", """
             ⚠️ Failed to create event tap!
 
-            To fix this, grant Input Monitoring permissions:
-              1. Open System Settings → Privacy & Security → Input Monitoring
-              2. Click '+' and add the app that launched ZeroG
-                 (e.g., Terminal.app, Xcode.app, or iTerm.app)
-              3. Also add it under Accessibility
-              4. Restart ZeroG
+            To fix this, grant Accessibility permission:
+              1. Open System Settings → Privacy & Security → Accessibility
+              2. Turn on the toggle for ZeroG (or the app that launched it,
+                 e.g. Terminal.app or Xcode.app when running unbundled)
+              3. Restart ZeroG
 
             Process: \(processName) | Bundle: \(parentApp)
             """)
-            return
+            return false
         }
 
         eventTap = tap
@@ -126,7 +141,10 @@ final class KeyMonitor {
             object: nil
         )
 
+        isRunning = true
+        didLogTapFailure = false
         Log.debug("KeyMonitor", "Event tap installed. Monitoring \(triggerKey.displayName) key.")
+        return true
     }
 
     /// Remove the event tap and clean up.
@@ -146,6 +164,7 @@ final class KeyMonitor {
 
         eventTap = nil
         runLoopSource = nil
+        isRunning = false
 
         Log.debug("KeyMonitor", "Event tap removed.")
     }
@@ -221,7 +240,7 @@ final class KeyMonitor {
             }
 
             switch state {
-            case .idle, .success, .error:
+            case .idle, .success, .error, .needsPermission:
                 self.isQPressedDuringSession = false
                 self.stateMachine.useGemini = false
                 self.recordingStartTime = Date()
