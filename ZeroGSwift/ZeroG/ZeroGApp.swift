@@ -84,11 +84,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         // Permissions + onboarding wizard
         permissionsManager = PermissionsManager()
         onboardingController = OnboardingWindowController(permissions: permissionsManager)
-        // Ground-truth Input-Monitoring probe: try to install the key tap and
-        // report whether it's live (CGPreflight caches false, so the tap is the
-        // only reliable live signal). Drives the wizard's auto-advance + relaunch.
+        // Ground-truth Accessibility probe: tear down any existing tap and try to
+        // install a FRESH one, reporting whether it came up. A fresh create is the
+        // only honest signal — a tap left running from a prior grant would make a
+        // plain start() return true and advance the wizard before the user has
+        // actually approved. (AXIsProcessTrusted can report stale, so the tap is
+        // the reliable live check.)
         onboardingController.attemptKeyTap = { [weak self] in
-            self?.keyMonitor.start() ?? false
+            guard let self else { return false }
+            self.keyMonitor.stop()
+            return self.keyMonitor.start()
         }
         // The wizard switches the app to .regular for a Dock icon; reverting to
         // .accessory on close leaves the event tap dead. Rebuild it once the
