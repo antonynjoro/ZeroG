@@ -73,11 +73,19 @@ final class OnboardingViewModel: ObservableObject {
 
     let permissions: PermissionsManager
 
+    /// True when the wizard opened mid-flow (some permissions already granted) —
+    /// i.e. the user has onboarded before and something was revoked. Re-entry
+    /// skips the trigger-key step after the last grant and lands on Done, whose
+    /// live try-field lets the user immediately verify the fix worked.
+    private(set) var isReentry: Bool
+
     init(permissions: PermissionsManager) {
         self.permissions = permissions
         self.selectedKey = Config.triggerKey
         self.micDenied = permissions.status(for: .microphone) == .denied
-        self.step = Self.initialStep(statuses: permissions.statuses)
+        let initial = Self.initialStep(statuses: permissions.statuses)
+        self.step = initial
+        self.isReentry = initial != .welcome
     }
 
     // MARK: Re-entry
@@ -104,6 +112,7 @@ final class OnboardingViewModel: ObservableObject {
     func resetToInitialStep() {
         micDenied = permissions.status(for: .microphone) == .denied
         step = Self.initialStep(statuses: permissions.statuses)
+        isReentry = step != .welcome
     }
 
     // MARK: Advance
@@ -113,10 +122,17 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     /// A permission flipped to granted (from polling). Auto-advance only when the
-    /// user is actually sitting on that permission's step.
+    /// user is actually sitting on that permission's step — to the next missing
+    /// permission, or past them: fresh onboarding continues to the trigger-key
+    /// step; re-entry jumps straight to Done so the try-field proves the fix.
     func handleGranted(_ kind: PermissionKind) {
         if kind == .microphone { micDenied = false }
-        if step == Self.step(for: kind) { advance() }
+        guard step == Self.step(for: kind) else { return }
+        if let firstMissing = permissions.missing.first {
+            step = Self.step(for: firstMissing)
+        } else {
+            step = isReentry ? .done : .triggerKey
+        }
     }
 
     // MARK: Step actions
