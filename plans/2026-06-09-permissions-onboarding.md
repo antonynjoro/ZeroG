@@ -1,6 +1,7 @@
 ---
-status: in-progress
+status: complete
 created: 2026-06-09
+completed: 2026-06-10
 branch: feature/permissions-onboarding (off dev)
 mockup: mockups/onboarding-flow-mockup.html (gitignored, Variant A — design source of truth)
 stack: native SwiftUI in NSWindow via NSHostingView (matches HUDPanel)
@@ -248,3 +249,45 @@ After each app-affecting commit: `cd ZeroGSwift && ./build_app.sh`, then quit + 
 - Whisper removal (still blocked on Parakeet soak — separate plan).
 - Mic-test / waveform step in the Done screen (nice-to-have, add later if wanted).
 - Gemini API key onboarding (optional feature; stays in the menu).
+
+---
+
+## As-built addendum (2026-06-10) — deviations from the plan above
+
+Shipped on `feature/permissions-onboarding`, field-tested with Antony. Where this
+section contradicts the body above, **the addendum is what shipped**.
+
+1. **Input Monitoring removed entirely — the wizard is 5 steps / 2 permissions**
+   (Welcome → Mic → Accessibility → Trigger key → Done). An Accessibility-trusted
+   process may create listen-only CGEvent taps, so Accessibility covers both the
+   trigger key and the paste. Proven live: hotkey works with ZeroG absent from the
+   Input Monitoring pane. All CGPreflight/CGRequestListenEventAccess code deleted.
+2. **`CGEvent.tapCreate` success is NOT a permission signal** — macOS can create
+   the tap and silently withhold events pending trust. Two intermediate builds
+   advanced the wizard prematurely on that false axiom. Grant detection is
+   exclusively `AXIsProcessTrusted()` / `AVCaptureDevice.authorizationStatus` on
+   the 1s poll. Full gotcha list: `docs/macos-permissions-gotchas.md`.
+3. **`isReady` returns TRUE for `.needsPermission`** (plan said false): with
+   false, the lingering HUD would swallow every hotkey press (KeyMonitor guards
+   isReady before the permission gate runs) — soft-locking dictation. The next
+   press starts a fresh recording and clears the notice; the app-level gate still
+   intercepts if grants are missing (and resets the stuck `.recording` state).
+4. **Done step is a live try-field, not a typewriter demo** — real focusable
+   TextField, auto-focused, with a success beat (green tint + spring check +
+   single ripple + trackpad haptic) the first time text lands. Doubles as the
+   end-to-end mic + paste verification.
+5. **Re-entry grants jump straight to Done**: after re-granting a revoked
+   permission, the wizard skips the remaining steps and lands on the try-field so
+   the user immediately proves the fix (fresh onboarding still passes through
+   trigger-key selection).
+6. **Wizard runs as a `.regular` app (Dock icon) while open**, reverting to
+   `.accessory` on close — and the app rebuilds the key tap on close because the
+   activation-policy flip kills it.
+7. **Extra fixes shipped alongside**: deep-link button pre-lists ZeroG via the AX
+   prompt before opening Settings; wizard re-fronts itself after each grant;
+   `.env` probe skipped under protected folders (no Documents-access prompt);
+   `Log.error` routes through `NSLog("%{public}@", …)` so it's visible in Console.
+
+Verification: full tccutil matrix exercised manually (fresh flow, accessibility
+wait-for-toggle, mic revoke re-entry, accessibility revoke at hotkey, hotkey
+survives wizard close), 91 tests green.

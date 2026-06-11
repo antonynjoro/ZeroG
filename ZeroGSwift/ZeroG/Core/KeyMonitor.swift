@@ -31,12 +31,11 @@ final class KeyMonitor {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     /// Whether the tap is currently installed. Guards against a double `start()`
-    /// (e.g. the Input-Monitoring grant retry) leaking a second tap + a duplicate
+    /// (e.g. the post-grant retry) leaking a second tap + a duplicate
     /// trigger-key observer.
     private(set) var isRunning = false
-    /// Throttles the tap-creation failure log to once per failing streak — the
-    /// onboarding poll calls `start()` every second while Input Monitoring is
-    /// still missing, which would otherwise flood the log.
+    /// Throttles the tap-creation failure log to once per failing streak, so
+    /// repeated retries while Accessibility is missing don't flood the log.
     private var didLogTapFailure = false
     private var triggerKey: TriggerKey = Config.triggerKey
     private var isTriggerKeyPressed = false

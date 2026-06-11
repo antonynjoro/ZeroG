@@ -10,7 +10,7 @@ final class StatusBarController {
     
     private var statusItem: NSStatusItem!
     private var statusMenuItem: NSMenuItem!
-    /// Shown only while Input Monitoring is missing (the tap is dead, so the
+    /// Shown only while the key tap is dead (Accessibility missing, so the
     /// hotkey can't fire). Hidden once the tap is live.
     private var hotkeyDisabledMenuItem: NSMenuItem!
     private var copyTranscriptionMenuItem: NSMenuItem!
@@ -54,7 +54,7 @@ final class StatusBarController {
         statusMenuItem.isEnabled = false
         menu.addItem(statusMenuItem)
 
-        // Hotkey-disabled warning (hidden unless Input Monitoring is missing)
+        // Hotkey-disabled warning (hidden unless the key tap is dead — Accessibility missing)
         hotkeyDisabledMenuItem = NSMenuItem(title: "Hotkey disabled — open Setup", action: nil, keyEquivalent: "")
         hotkeyDisabledMenuItem.isEnabled = false
         hotkeyDisabledMenuItem.isHidden = true

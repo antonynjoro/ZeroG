@@ -610,7 +610,7 @@ struct OnboardingWizardView: View {
         }
     }
 
-    // Microphone / Input Monitoring / Accessibility
+    // Microphone / Accessibility
     private var permissionStep: some View {
         let kind = model.step.permission!
         let index = (PermissionKind.allCases.firstIndex(of: kind) ?? 0) + 1
