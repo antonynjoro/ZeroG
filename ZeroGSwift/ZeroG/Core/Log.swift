@@ -23,6 +23,7 @@ enum Log {
     /// filtered by process "ZeroG") — `print` only reaches stdout, which Console
     /// does not capture for a GUI app launched via Finder/`open`.
     static func error(_ tag: String, _ message: String) {
-        NSLog("[%@] %@", tag, message)
+        // %{public}@ so the message isn't redacted to <private> in the unified log.
+        NSLog("%{public}@", "[\(tag)] \(message)")
     }
 }

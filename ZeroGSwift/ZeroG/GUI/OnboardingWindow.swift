@@ -732,36 +732,9 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     /// (`.regular` → `.accessory`) leaves in a dead state. Wired by the app.
     var onClose: (() -> Void)?
 
-    /// Consecutive failed tap attempts after the user opened Settings for
-    /// Accessibility. After enough, we conclude the running process can't pick up
-    /// the grant live and surface the relaunch affordance.
-    private var tapFailStreak = 0
-    private let tapFailThreshold = 5
-
     init(permissions: PermissionsManager) {
         self.permissions = permissions
         super.init()
-        // Per-tick liveness probe for the key tap (gated on Accessibility).
-        permissions.onRefresh = { [weak self] in self?.pollAccessibilityTap() }
-    }
-
-    /// Runs on every poll tick while the window is open. Tries to bring up the tap
-    /// once the user has opened Settings; success → mark Accessibility granted
-    /// (auto-advance), repeated failure → ask the user to relaunch.
-    private func pollAccessibilityTap() {
-        guard let model, window?.isVisible == true else { return }
-        guard model.accessibilityAttempted,
-              permissions.status(for: .accessibility) != .granted else { return }
-
-        let live = (attemptKeyTap?() == true)
-        Log.error("Permissions", "poll: accessibility AX=\(permissions.status(for: .accessibility)) freshTapLive=\(live)")
-        if live {
-            tapFailStreak = 0
-            permissions.markGranted(.accessibility)
-        } else {
-            tapFailStreak += 1
-            if tapFailStreak >= tapFailThreshold { model.relaunchRequired = true }
-        }
     }
 
     /// Relaunch the app — the reliable escape when a freshly-granted Accessibility
@@ -794,14 +767,13 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     /// Input-Monitoring retry. Safe to call when the window is closed (no-op).
     func handlePermissionGranted(_ kind: PermissionKind) {
         if kind == .accessibility {
-            // AXIsProcessTrusted() reports a stale `true` after a revoke (the
-            // running process never sees it turn off), so a status flip alone is
-            // not trustworthy. Only advance when a FRESH tap actually installs —
-            // the honest "Accessibility is live right now" signal. Otherwise stay
-            // on the step; the poll keeps probing until the toggle is really on.
+            // The grant is detected by AXIsProcessTrusted() (the poll) — a real
+            // toggle, since a fresh process reads false until it's on. Install the
+            // key tap now so events flow. If it can't come up live, ask to relaunch
+            // and stay on the step rather than advancing into a dead hotkey.
             let live = (attemptKeyTap?() == true)
-            Log.error("Permissions", "Accessibility grant signal — fresh key tap live=\(live)")
-            guard live else { return }
+            Log.error("Permissions", "Accessibility granted (AX) — key tap live=\(live)")
+            guard live else { model?.relaunchRequired = true; return }
         }
         model?.handleGranted(kind)
         // A grant means the user just finished in the native dialog or in System
