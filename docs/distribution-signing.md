@@ -109,9 +109,10 @@ ZeroG.zip`), or a signed/notarized `.dmg` if you want the drag-to-Applications
 window. Either way the artifact must be the **stapled** bundle from a full
 release build.
 
-> First launch still prompts for **Input Monitoring**, **Accessibility**, and
-> **Microphone** in System Settings → Privacy & Security. That's normal for this
-> class of app — the landing page should show users where to grant them.
+> First launch walks users through granting **Microphone** and **Accessibility**
+> via the built-in onboarding wizard (only those two — Accessibility also covers
+> the key listener, see `docs/macos-permissions-gotchas.md`). The landing page no
+> longer needs grant instructions; the wizard handles it.
 
 ---
 
