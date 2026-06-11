@@ -67,4 +67,14 @@ struct StatePresentationTests {
         #expect(p.hudStatus == "MIC BUSY")
         #expect(p.glowColor == HUDColors.errorRose)
     }
+
+    @Test("needsPermission is a visible amber notice with the clipboard message")
+    func needsPermission() {
+        let p = AppState.needsPermission("Grant Accessibility to paste").presentation(useGemini: false)
+        #expect(p.showsHUD)
+        #expect(p.hudIconName == "onboard-paste")
+        #expect(p.hudTitle == "CLICK TO FIX PERMISSIONS")
+        #expect(p.hudStatus == "COPIED. PRESS ⌘V")
+        #expect(p.glowColor == HUDColors.orbitAmber)
+    }
 }

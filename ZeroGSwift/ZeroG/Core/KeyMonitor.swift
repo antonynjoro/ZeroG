@@ -241,7 +241,7 @@ final class KeyMonitor {
             }
 
             switch state {
-            case .idle, .success, .error:
+            case .idle, .success, .error, .needsPermission:
                 self.isQPressedDuringSession = false
                 self.stateMachine.useGemini = false
                 self.recordingStartTime = Date()

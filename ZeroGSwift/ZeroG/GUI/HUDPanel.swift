@@ -166,7 +166,7 @@ private struct HUDIconImage: View {
 // MARK: - HUD Panel Controller
 
 /// Manages the floating NSPanel that hosts the SwiftUI HUD view.
-final class HUDPanelController {
+final class HUDPanelController: NSObject {
     
     // MARK: Properties
     
@@ -191,7 +191,8 @@ final class HUDPanelController {
     
     init(stateMachine: AppStateMachine) {
         self.stateMachine = stateMachine
-        
+        super.init()
+
         setupPanel()
         observeState()
     }
@@ -225,7 +226,13 @@ final class HUDPanelController {
         hostingView.autoresizingMask = [.width, .height]
         
         panel.contentView?.addSubview(hostingView)
-        
+
+        // Whole-panel click → open the setup wizard. Only ever reachable in
+        // .needsPermission (every other state keeps ignoresMouseEvents = true,
+        // and the handler re-checks). No canBecomeKey needed for a click gesture.
+        let click = NSClickGestureRecognizer(target: self, action: #selector(hudClicked))
+        panel.contentView?.addGestureRecognizer(click)
+
         updatePosition()
         panel.setFrameOrigin(NSPoint(x: centerX, y: hiddenY))
         
@@ -243,10 +250,22 @@ final class HUDPanelController {
                 switch state {
                 case .idle, .loading:
                     self.slideOut()
+                case .needsPermission:
+                    // Lingering + clickable: the one state where the HUD takes a
+                    // click (opens the wizard). No auto-reset is scheduled for it.
+                    self.panel.ignoresMouseEvents = false
+                    self.slideIn()
                 default:
+                    self.panel.ignoresMouseEvents = true
                     self.slideIn()
                 }
             }
+    }
+
+    /// Click anywhere on the lingering `.needsPermission` HUD → open the wizard.
+    @objc private func hudClicked() {
+        guard case .needsPermission = stateMachine.currentState else { return }
+        NotificationCenter.default.post(name: .permissionsNeeded, object: nil)
     }
     
     // MARK: - Positioning

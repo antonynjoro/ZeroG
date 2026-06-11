@@ -119,6 +119,20 @@ extension AppState {
                 glowColor: HUDColors.errorRose,
                 borderColor: HUDColors.errorRose.opacity(0.34)
             )
+
+        case .needsPermission:
+            // Lingering "your text is safe" notice: paste was blocked, transcript
+            // is on the clipboard. The HUD accepts a click in this state (opens
+            // the setup wizard) — see HUDPanelController.
+            return StatePresentation(
+                menuSymbol: "doc.on.clipboard",
+                showsHUD: true,
+                hudIconName: "onboard-paste", iconSize: 36,
+                hudTitle: "CLICK TO FIX PERMISSIONS", titleColor: HUDColors.orbitAmber.opacity(0.8),
+                hudStatus: "COPIED. PRESS ⌘V", statusColor: HUDColors.primaryText,
+                glowColor: HUDColors.orbitAmber,
+                borderColor: HUDColors.orbitAmber.opacity(0.34)
+            )
         }
     }
 }
