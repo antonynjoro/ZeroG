@@ -73,6 +73,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
                 if self.permissionsManager.allGranted {
                     self.audioRecorder.startRecording()
                 } else {
+                    // KeyMonitor already flipped the state to .recording before
+                    // this callback — undo it, or the HUD sticks on "RECORDING…"
+                    // with no recording running.
+                    self.stateMachine.transition(to: .idle)
                     self.onboardingController.show()
                 }
             },
