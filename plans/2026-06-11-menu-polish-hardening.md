@@ -1,8 +1,17 @@
 ---
-status: in-progress
+status: complete
 created: 2026-06-11
+completed: 2026-06-11
 branch: feature/menu-cleanup-and-hardening (off dev)
 ---
+
+> **As-built note:** shipped as planned. Deviation: the polish shortcut is
+> configured via a **menu preset picker** (⌃⌥P / ⌃⌥Space / ⌃⌘P / ⌥⌘P), not a
+> live key-recorder — reliable and still "configurable from day one"; the
+> onboarding step shows the current shortcut and points at the menu. The
+> "Copy Polished Version" menu item copies; the global shortcut polishes +
+> pastes. Spike STT-backend menu removed AND the GoogleGenerativeAI dependency
+> dropped. 90 tests green.
 
 # Menu cleanup · on-device Polish (Apple Foundation Models) · hardening
 
