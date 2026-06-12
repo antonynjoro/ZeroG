@@ -9,6 +9,8 @@ enum AppState: Equatable {
     case idle
     case recording
     case processing
+    /// Running the on-device polish on the last transcription (post-hoc action).
+    case polishing
     case success
     case error(String)
     /// Paste was blocked by a missing permission; the transcript was copied to
@@ -33,6 +35,7 @@ enum AppState: Equatable {
         case .idle: return "Ready — Hold \(Config.triggerKey.displayName) to record"
         case .recording: return "Recording..."
         case .processing: return "Transcribing..."
+        case .polishing: return "Polishing..."
         case .success: return "Done ✓"
         case .error(let msg): return "Error: \(msg)"
         case .needsPermission(let msg): return "Copied to clipboard — \(msg)"
@@ -52,14 +55,10 @@ final class AppStateMachine: ObservableObject {
     /// Real-time audio input level (0.0–1.0) for HUD waveform visualization.
     @Published var audioLevel: Float = 0.0
 
-    /// The most recent transcription result, available for manual clipboard copy.
+    /// The most recent transcription result, available for manual clipboard copy
+    /// and the on-device polish action.
     @Published var lastTranscription: String?
 
-    // MARK: Session Context
-    
-    /// Whether the current recording session should use Gemini post-processing.
-    @Published var useGemini: Bool = false
-    
     // MARK: State Transitions
     
     func transition(to newState: AppState) {

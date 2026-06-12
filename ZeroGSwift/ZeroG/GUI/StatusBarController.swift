@@ -4,39 +4,50 @@ import Combine
 // MARK: - Status Bar Controller
 
 /// Manages the macOS status bar (menu bar) icon, dropdown menu, and status text.
-final class StatusBarController {
-    
+final class StatusBarController: NSObject, NSMenuDelegate {
+
     // MARK: Properties
-    
+
     private var statusItem: NSStatusItem!
     private var statusMenuItem: NSMenuItem!
     /// Shown only while the key tap is dead (Accessibility missing, so the
     /// hotkey can't fire). Hidden once the tap is live.
     private var hotkeyDisabledMenuItem: NSMenuItem!
     private var copyTranscriptionMenuItem: NSMenuItem!
-    private var geminiMenuItem: NSMenuItem!
+    /// Shown only after the speech model fails to load — lets the user retry
+    /// without relaunching.
+    private var retryModelMenuItem: NSMenuItem!
+    private var polishMenuItem: NSMenuItem!
+    /// Disabled note shown under the polish item when polish is unavailable.
+    private var polishReasonMenuItem: NSMenuItem!
+    private var polishShortcutSubmenu: NSMenu!
     private var triggerKeySubmenu: NSMenu!
-    private var backendSubmenu: NSMenu!
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: Dependencies
 
     private let stateMachine: AppStateMachine
 
-    /// SPIKE (spike/fluidaudio-parakeet): invoked by the "Compare STT backends" menu item.
-    private let onRunBackendComparison: () -> Void
-
     /// Opens the permissions / setup wizard.
     private let onShowPermissions: () -> Void
+
+    /// Polishes the last transcription on-device and copies the result.
+    private let onCopyPolished: () -> Void
+
+    /// Retries loading the speech model after a failed load.
+    private let onRetryModel: () -> Void
 
     // MARK: Initialization
 
     init(stateMachine: AppStateMachine,
-         onRunBackendComparison: @escaping () -> Void = {},
-         onShowPermissions: @escaping () -> Void = {}) {
+         onShowPermissions: @escaping () -> Void = {},
+         onCopyPolished: @escaping () -> Void = {},
+         onRetryModel: @escaping () -> Void = {}) {
         self.stateMachine = stateMachine
-        self.onRunBackendComparison = onRunBackendComparison
         self.onShowPermissions = onShowPermissions
+        self.onCopyPolished = onCopyPolished
+        self.onRetryModel = onRetryModel
+        super.init()
 
         setupStatusItem()
         observeState()
@@ -60,6 +71,12 @@ final class StatusBarController {
         hotkeyDisabledMenuItem.isHidden = true
         menu.addItem(hotkeyDisabledMenuItem)
 
+        // Retry Model Download (hidden unless the model failed to load)
+        retryModelMenuItem = NSMenuItem(title: "Retry Model Download", action: #selector(retryModel), keyEquivalent: "")
+        retryModelMenuItem.target = self
+        retryModelMenuItem.isHidden = true
+        menu.addItem(retryModelMenuItem)
+
         menu.addItem(NSMenuItem.separator())
 
         // Setup / Permissions wizard
@@ -71,18 +88,6 @@ final class StatusBarController {
         setupItem.target = self
         menu.addItem(setupItem)
 
-        menu.addItem(NSMenuItem.separator())
-
-        // Gemini API key
-        let geminiTitle = geminiMenuTitle()
-        geminiMenuItem = NSMenuItem(
-            title: geminiTitle,
-            action: #selector(showGeminiKeyDialog),
-            keyEquivalent: ""
-        )
-        geminiMenuItem.target = self
-        menu.addItem(geminiMenuItem)
-        
         menu.addItem(NSMenuItem.separator())
 
         // Record Key submenu
@@ -101,35 +106,6 @@ final class StatusBarController {
 
         menu.addItem(NSMenuItem.separator())
 
-        // SPIKE (spike/fluidaudio-parakeet): STT backend selector + comparison runner.
-        let backendItem = NSMenuItem(title: "STT Backend (spike)", action: nil, keyEquivalent: "")
-        backendSubmenu = NSMenu()
-        let currentBackend = Config.sttBackend
-        let backends: [(Config.STTBackend, String)] = [
-            (.whisper, "WhisperKit (default)"),
-            (.parakeetV2, "Parakeet v2 (English)"),
-            (.parakeetV3, "Parakeet v3 (multilingual)"),
-        ]
-        for (backend, title) in backends {
-            let item = NSMenuItem(title: title, action: #selector(backendSelected(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = backend.rawValue
-            item.state = (backend == currentBackend) ? .on : .off
-            backendSubmenu.addItem(item)
-        }
-        backendItem.submenu = backendSubmenu
-        menu.addItem(backendItem)
-
-        let compareItem = NSMenuItem(
-            title: "Compare STT Backends (last recording)",
-            action: #selector(runBackendComparison),
-            keyEquivalent: ""
-        )
-        compareItem.target = self
-        menu.addItem(compareItem)
-
-        menu.addItem(NSMenuItem.separator())
-
         // Copy Last Transcription
         copyTranscriptionMenuItem = NSMenuItem(
             title: "Copy Last Transcription",
@@ -139,9 +115,37 @@ final class StatusBarController {
         copyTranscriptionMenuItem.target = self
         copyTranscriptionMenuItem.isEnabled = false
         menu.addItem(copyTranscriptionMenuItem)
-        
+
+        // Copy Polished Version (on-device Apple Foundation Models)
+        polishMenuItem = NSMenuItem(
+            title: "Copy Polished Version",
+            action: #selector(copyPolished),
+            keyEquivalent: ""
+        )
+        polishMenuItem.target = self
+        polishMenuItem.isEnabled = false
+        menu.addItem(polishMenuItem)
+
+        // Reason shown when polish is unavailable (macOS <26 / Apple Intelligence off)
+        polishReasonMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        polishReasonMenuItem.isEnabled = false
+        polishReasonMenuItem.isHidden = true
+        menu.addItem(polishReasonMenuItem)
+
+        // Polish Shortcut (paste-polished) preset picker
+        let shortcutItem = NSMenuItem(title: "Polish Shortcut", action: nil, keyEquivalent: "")
+        polishShortcutSubmenu = NSMenu()
+        rebuildPolishShortcutSubmenu()
+        shortcutItem.submenu = polishShortcutSubmenu
+        menu.addItem(shortcutItem)
+
         menu.addItem(NSMenuItem.separator())
-        
+
+        // About
+        let aboutItem = NSMenuItem(title: "About ZeroG", action: #selector(showAbout), keyEquivalent: "")
+        aboutItem.target = self
+        menu.addItem(aboutItem)
+
         // Quit
         let quitItem = NSMenuItem(
             title: "Quit ZeroG",
@@ -149,9 +153,28 @@ final class StatusBarController {
             keyEquivalent: "q"
         )
         menu.addItem(quitItem)
-        
+
+        menu.delegate = self
         statusItem.menu = menu
         updateUI(for: .loading("Starting up..."))
+    }
+
+    // MARK: - NSMenuDelegate
+
+    /// Refresh dynamic enablement each time the menu opens — polish availability
+    /// (Apple Intelligence can be toggled) and whether there's a transcription to act on.
+    func menuWillOpen(_ menu: NSMenu) {
+        let hasText = stateMachine.lastTranscription != nil
+        copyTranscriptionMenuItem.isEnabled = hasText
+
+        let available = PolishService.isAvailable
+        polishMenuItem.isEnabled = available && hasText
+        if let reason = PolishService.unavailableReason {
+            polishReasonMenuItem.title = reason
+            polishReasonMenuItem.isHidden = false
+        } else {
+            polishReasonMenuItem.isHidden = true
+        }
     }
     
     // MARK: - State Observation
@@ -180,8 +203,7 @@ final class StatusBarController {
         statusMenuItem.title = state.statusText
 
         // Menu symbol comes from the single state-presentation source of truth.
-        // The symbol is independent of Gemini mode, so the flag is irrelevant here.
-        let symbolName = state.presentation(useGemini: false).menuSymbol
+        let symbolName = state.presentation.menuSymbol
 
         if let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "ZeroG Status") {
             let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
@@ -204,30 +226,6 @@ final class StatusBarController {
         }
     }
 
-    // MARK: - STT Backend Selection (spike)
-
-    @objc private func backendSelected(_ sender: NSMenuItem) {
-        guard let raw = sender.representedObject as? String,
-              let backend = Config.STTBackend(rawValue: raw) else { return }
-        Config.setSTTBackend(backend)
-
-        for item in backendSubmenu.items {
-            item.state = (item.representedObject as? String) == raw ? .on : .off
-        }
-
-        // The live engine is built once at launch, so a switch needs a relaunch to take effect.
-        let alert = NSAlert()
-        alert.messageText = "Backend set to \(backend.rawValue)"
-        alert.informativeText = "Quit and relaunch ZeroG for the new backend to take effect.\n\n(The \"Compare STT Backends\" item runs all backends on your last recording without relaunching.)"
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
-    }
-
-    @objc private func runBackendComparison() {
-        onRunBackendComparison()
-    }
-
     // MARK: - Permissions / Setup
 
     @objc private func showPermissions() {
@@ -240,56 +238,63 @@ final class StatusBarController {
         hotkeyDisabledMenuItem.isHidden = hotkeyLive
     }
 
-    // MARK: - Gemini Key Dialog
-    
-    private func geminiMenuTitle() -> String {
-        if let preview = GeminiService.storedKeyPreview {
-            return "Gemini API Key: \(preview)"
-        }
-        return "Set Gemini API Key..."
+    /// Show/hide the "Retry Model Download" item after a model-load failure.
+    func setModelRetryVisible(_ visible: Bool) {
+        retryModelMenuItem?.isHidden = !visible
     }
-    
-    @objc private func showGeminiKeyDialog() {
-        // Bring app to front for the dialog
-        NSApp.activate(ignoringOtherApps: true)
-        
-        let alert = NSAlert()
-        alert.messageText = "Gemini API Key"
-        alert.informativeText = "Enter your Google Gemini API key.\nThis enables grammar correction when you hold \(Config.triggerKey.displayName)+Q while recording.\n\nGet a key at: ai.google.dev"
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Cancel")
-        
-        // Add text field
-        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
-        input.placeholderString = "AIza..."
-        
-        // Pre-fill with existing key if available
-        if let existing = UserDefaults.standard.string(forKey: Config.googleAPIKeyDefaultsKey) {
-            input.stringValue = existing
-        }
-        
-        alert.accessoryView = input
-        alert.window.initialFirstResponder = input
-        
-        let response = alert.runModal()
-        
-        if response == .alertFirstButtonReturn {
-            let key = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !key.isEmpty {
-                GeminiService.configure(apiKey: key)
-                geminiMenuItem.title = geminiMenuTitle()
-            }
-        }
+
+    @objc private func retryModel() {
+        onRetryModel()
     }
-    
+
     // MARK: - Copy Last Transcription
-    
+
     @objc private func copyLastTranscription() {
         guard let text = stateMachine.lastTranscription else { return }
-        
+
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+    }
+
+    // MARK: - Polish
+
+    @objc private func copyPolished() {
+        onCopyPolished()
+    }
+
+    private func rebuildPolishShortcutSubmenu() {
+        polishShortcutSubmenu.removeAllItems()
+        let current = Config.polishShortcut
+        for preset in Config.polishShortcutPresets {
+            let item = NSMenuItem(
+                title: preset.displayString,
+                action: #selector(polishShortcutSelected(_:)),
+                keyEquivalent: "")
+            item.target = self
+            item.representedObject = preset
+            item.state = (preset == current) ? .on : .off
+            polishShortcutSubmenu.addItem(item)
+        }
+    }
+
+    @objc private func polishShortcutSelected(_ sender: NSMenuItem) {
+        guard let shortcut = sender.representedObject as? Config.PolishShortcut else { return }
+        Config.setPolishShortcut(shortcut)
+        rebuildPolishShortcutSubmenu()
+    }
+
+    // MARK: - About
+
+    @objc private func showAbout() {
+        NSApp.activate(ignoringOtherApps: true)
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
+        let alert = NSAlert()
+        alert.messageText = "ZeroG \(version)"
+        alert.informativeText = "Build \(build)\n\nPrivacy-first voice typing. Everything runs on your Mac — your audio and text never leave it."
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 }

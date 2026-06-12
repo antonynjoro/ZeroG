@@ -42,6 +42,7 @@ enum OnboardingStep: Int, CaseIterable {
     case microphone
     case accessibility
     case triggerKey
+    case polish
     case done
 
     var next: OnboardingStep? { OnboardingStep(rawValue: rawValue + 1) }
@@ -563,6 +564,7 @@ struct OnboardingWizardView: View {
             case .microphone,
                  .accessibility:   permissionStep
             case .triggerKey:      triggerKeyStep
+            case .polish:          polishStep
             case .done:            doneStep
             }
         }
@@ -644,6 +646,34 @@ struct OnboardingWizardView: View {
         }
     }
 
+    // Polish (on-device, optional)
+    private var polishStep: some View {
+        let available = PolishService.isAvailable
+        return VStack(spacing: 0) {
+            eyebrow("Optional")
+            IconHalo(iconName: "hud-polish", granted: false)
+                .padding(.bottom, 22).riseIn(0.08)
+            title("Polish on-device").riseIn(0.14)
+            sub("Clean up any dictation with Apple Intelligence — grammar and formatting, all on your Mac. Nothing leaves it.")
+                .padding(.top, 8).riseIn(0.20)
+            if available {
+                (Text("After dictating, press ")
+                    + Text(Config.polishShortcut.displayString).bold()
+                    + Text(" to polish and paste. Change it anytime in the menu."))
+                    .font(.system(size: 12))
+                    .foregroundColor(OB.textDim)
+                    .frame(maxWidth: 300)
+                    .padding(.top, 14).riseIn(0.26)
+            } else {
+                Text(PolishService.unavailableReason ?? "Not available on this Mac.")
+                    .font(.system(size: 12))
+                    .foregroundColor(OB.orbit3)
+                    .frame(maxWidth: 300)
+                    .padding(.top, 14).riseIn(0.26)
+            }
+        }
+    }
+
     // Done
     private var doneStep: some View {
         VStack(spacing: 0) {
@@ -681,6 +711,14 @@ struct OnboardingWizardView: View {
         case .triggerKey:
             PrimaryButton(title: "Use \(model.selectedKey.displayName)") { model.chooseKeyAndAdvance() }
                 .riseIn(0.30)
+        case .polish:
+            VStack(spacing: 0) {
+                PrimaryButton(title: PolishService.isAvailable ? "Sounds good" : "Continue") { model.advance() }
+                    .riseIn(0.30)
+                Text("Optional — you can ignore this and just dictate.")
+                    .font(.system(size: 11)).foregroundColor(OB.textFaint)
+                    .padding(.top, 12).riseIn(0.36)
+            }
         case .done:
             PrimaryButton(title: "Start using ZeroG") { onClose() }.riseIn(0.30)
         }

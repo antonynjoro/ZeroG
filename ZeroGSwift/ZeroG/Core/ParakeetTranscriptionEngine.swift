@@ -48,17 +48,21 @@ final class ParakeetTranscriptionEngine: Transcribing {
         do {
             reportStatus("Downloading \(variant.label)...")
 
-            // Download + load, with one retry on transient failure so a flaky network
-            // doesn't brick the engine (the app can still fall back to Whisper).
+            // Download + load, with one retry on transient failure and a hard
+            // timeout so a hung/stalled download surfaces as a retryable error
+            // instead of spinning on "Downloading…" forever.
             let label = variant.label
-            let loaded = try await Self.withOneRetry {
-                try await AsrModels.downloadAndLoad(
-                    version: self.variant.asrVersion,
-                    progressHandler: { [weak self] progress in
-                        let pct = Int(progress.fractionCompleted * 100)
-                        self?.reportStatus("Downloading \(label): \(pct)%")
-                    }
-                )
+            let version = variant.asrVersion
+            let loaded = try await Self.withTimeout(seconds: Self.downloadTimeout) {
+                try await Self.withOneRetry {
+                    try await AsrModels.downloadAndLoad(
+                        version: version,
+                        progressHandler: { [weak self] progress in
+                            let pct = Int(progress.fractionCompleted * 100)
+                            self?.reportStatus("Downloading \(label): \(pct)%")
+                        }
+                    )
+                }
             }
 
             reportStatus("Loading model into memory...")
@@ -121,6 +125,27 @@ final class ParakeetTranscriptionEngine: Transcribing {
             Log.error("Parakeet", "Load failed (\(error.localizedDescription)); retrying once...")
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             return try await op()
+        }
+    }
+
+    /// Total seconds allowed for the first-launch model download + load before we
+    /// give up and surface a retryable error.
+    private static let downloadTimeout: Double = 180
+
+    /// Run `op` with a hard deadline. Whichever finishes first wins; the loser is
+    /// cancelled. A timeout throws a transcription error the caller can retry.
+    private static func withTimeout<T: Sendable>(
+        seconds: Double,
+        _ op: @Sendable @escaping () async throws -> T
+    ) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask { try await op() }
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                throw TranscriptionError.transcriptionFailed("Model download timed out")
+            }
+            defer { group.cancelAll() }
+            return try await group.next()!
         }
     }
 }

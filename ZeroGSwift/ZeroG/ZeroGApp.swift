@@ -35,18 +35,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     private var permissionsManager: PermissionsManager!
     private var onboardingController: OnboardingWindowController!
 
-    /// SPIKE (spike/fluidaudio-parakeet): the most recent captured audio buffer, fed to the
-    /// backend comparator so every engine sees identical audio.
-    private var lastCapturedBuffer: [Float] = []
-
     // MARK: Application Lifecycle
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         
         Config.load()
-        GeminiService.configure()
-        
+
         // Initialize core
         stateMachine = AppStateMachine()
         transcriptionEngine = Self.makeTranscriptionEngine(for: Config.sttBackend)
@@ -57,11 +52,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
             transcriptionEngine: transcriptionEngine
         )
 
-        // SPIKE: remember the last buffer so the backend comparator can re-run it.
-        audioRecorder.onCapturedAudio = { [weak self] buffer in
-            self?.lastCapturedBuffer = buffer
-        }
-        
         keyMonitor = KeyMonitor(
             stateMachine: stateMachine,
             onStartRecording: { [weak self] in
@@ -84,7 +74,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
                 self?.audioRecorder.beginProcessing()
             }
         )
-        
+        // Global Polish shortcut → polish the last transcription and paste it.
+        keyMonitor.onPolishShortcut = { [weak self] in self?.polishAndPaste() }
+
         // Permissions + onboarding wizard
         permissionsManager = PermissionsManager()
         onboardingController = OnboardingWindowController(permissions: permissionsManager)
@@ -122,8 +114,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         // Initialize GUI
         statusBarController = StatusBarController(
             stateMachine: stateMachine,
-            onRunBackendComparison: { [weak self] in self?.runBackendComparison() },
-            onShowPermissions: { [weak self] in self?.onboardingController.show() }
+            onShowPermissions: { [weak self] in self?.onboardingController.show() },
+            onCopyPolished: { [weak self] in self?.copyPolished() },
+            onRetryModel: { [weak self] in self?.startModelLoad() }
         )
         hudController = HUDPanelController(stateMachine: stateMachine)
 
@@ -151,27 +144,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
             onboardingController.show()
         }
 
-        // Show loading state and download model
-        stateMachine.transition(to: .loading("Starting up..."))
-        
-        // Wire progress updates to the menu bar status
+        // Wire progress updates to the menu bar status, then download + load.
         transcriptionEngine.onStatusUpdate = { [weak self] message in
             self?.stateMachine.transition(to: .loading(message))
         }
-        
+
+        startModelLoad()
+    }
+
+    /// Load the speech model (timeout + one retry live inside the engine). On
+    /// terminal failure, surface a retryable error and expose the menu's
+    /// "Retry Model Download" item instead of leaving a dead "Model Failed" HUD.
+    private func startModelLoad() {
+        statusBarController.setModelRetryVisible(false)
+        stateMachine.transition(to: .loading("Starting up..."))
         Task.detached { [weak self] in
             guard let self else { return }
             do {
                 try await self.transcriptionEngine.initialize()
-                
                 DispatchQueue.main.async {
                     self.stateMachine.transition(to: .idle)
                     Log.debug("ZeroGApp", "🧑‍🚀 ZeroG Ready — Hold \(Config.triggerKey.displayName) to start recording")
                 }
             } catch {
-                Log.error("ZeroGApp", "⚠️ WhisperKit initialization failed: \(error)")
+                Log.error("ZeroGApp", "Model load failed: \(error.localizedDescription)")
                 DispatchQueue.main.async {
-                    self.stateMachine.transition(to: .error("Model Failed"))
+                    self.stateMachine.transition(to: .error("Model failed — retry from the menu"))
+                    self.statusBarController.setModelRetryVisible(true)
                 }
             }
         }
@@ -191,6 +190,63 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
 
     // MARK: - STT backend (FluidAudio spike)
 
+    // MARK: - On-device Polish
+
+    /// Polish the last transcription on-device and copy the result to the clipboard.
+    private func copyPolished() {
+        runPolish { polished in
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.setString(polished, forType: .string)
+            return true
+        }
+    }
+
+    /// Polish the last transcription on-device and paste it into the focused app.
+    /// Falls back to the clipboard + `.needsPermission` HUD when paste is blocked.
+    private func polishAndPaste() {
+        runPolish { [weak self] polished in
+            guard let self else { return true }
+            if TextInjector.injectText(polished) { return true }
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.setString(polished, forType: .string)
+            self.stateMachine.transition(to: .needsPermission("grant Accessibility to paste"))
+            NotificationCenter.default.post(name: .permissionsNeeded, object: nil)
+            return false   // alternate terminal state set above; skip the success HUD
+        }
+    }
+
+    /// Shared polish runner: transition to `.polishing`, run Foundation Models on
+    /// the last transcription off-main, then hand the result to `apply` on main.
+    /// `apply` returns whether to show the success HUD (false = it set its own
+    /// terminal state, e.g. the paste-blocked fallback).
+    private func runPolish(_ apply: @escaping (String) -> Bool) {
+        guard let text = stateMachine.lastTranscription, !text.isEmpty else { return }
+        guard PolishService.isAvailable else { return }
+        guard stateMachine.currentState.isReady else { return }   // not mid-record/processing
+
+        stateMachine.transition(to: .polishing)
+        Task.detached { [weak self] in
+            guard let self else { return }
+            do {
+                let out = try await PolishService.polish(text)
+                await MainActor.run {
+                    if apply(out) {
+                        self.stateMachine.transition(to: .success)
+                        self.stateMachine.resetToIdle()
+                    }
+                }
+            } catch {
+                Log.error("Polish", "Failed: \(error.localizedDescription)")
+                await MainActor.run {
+                    self.stateMachine.transition(to: .error("Polish Failed"))
+                    self.stateMachine.resetToIdle(after: Config.Timing.errorReset)
+                }
+            }
+        }
+    }
+
     /// Build the live transcription engine for the selected backend. Only the chosen one is
     /// instantiated, so we never load Whisper and Parakeet models at the same time.
     private static func makeTranscriptionEngine(for backend: Config.STTBackend) -> Transcribing {
@@ -198,14 +254,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         case .whisper:    return TranscriptionEngine()
         case .parakeetV2: return ParakeetTranscriptionEngine(variant: .v2)
         case .parakeetV3: return ParakeetTranscriptionEngine(variant: .v3)
-        }
-    }
-
-    /// SPIKE: run the last captured recording through every backend and log the comparison.
-    private func runBackendComparison() {
-        let buffer = lastCapturedBuffer
-        Task.detached {
-            await BackendComparator.compare(buffer: buffer)
         }
     }
 }

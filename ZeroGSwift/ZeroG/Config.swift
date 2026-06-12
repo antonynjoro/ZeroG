@@ -19,25 +19,16 @@ enum Config {
             || UserDefaults.standard.bool(forKey: "DEBUG")
     }
     
-    // MARK: Gemini API
+    // MARK: Text Polish
 
-    /// UserDefaults / environment key under which the Gemini API key is stored.
-    /// Single source of truth — never hardcode this string elsewhere.
-    static let googleAPIKeyDefaultsKey = "GOOGLE_API_KEY"
+    /// Legacy UserDefaults key under which a cloud Gemini API key used to be stored.
+    /// Cloud Gemini was removed in favour of on-device Apple Foundation Models;
+    /// kept only so launch can delete any leftover key (see `Config.load`).
+    static let legacyGoogleAPIKeyDefaultsKey = "GOOGLE_API_KEY"
 
-    /// Google API key for Gemini integration. A key set explicitly via the menu bar
-    /// (stored in UserDefaults) takes precedence over an environment variable.
-    static var googleAPIKey: String? {
-        UserDefaults.standard.string(forKey: googleAPIKeyDefaultsKey)
-            ?? ProcessInfo.processInfo.environment[googleAPIKeyDefaultsKey]
-    }
+    /// Bundle resource (sans extension) holding the polish system prompt.
+    static let polishPromptResource = "polish_prompt"
 
-    /// Gemini model variant used for text polishing.
-    static let geminiModel = "gemini-2.0-flash-exp"
-
-    /// Bundle resource (sans extension) holding the Gemini system prompt.
-    static let geminiPromptResource = "gemini_prompt"
-    
     // MARK: Audio
 
     /// Safety-only silence threshold (RMS amplitude below which is considered true silence).
@@ -91,6 +82,74 @@ enum Config {
     static func setTriggerKey(_ key: TriggerKey) {
         UserDefaults.standard.set(key.id, forKey: triggerKeyDefaultsKey)
         NotificationCenter.default.post(name: .triggerKeyDidChange, object: nil, userInfo: [NotificationKeys.triggerKey: key])
+    }
+
+    // MARK: Polish Shortcut
+
+    /// Modifier subset for the global Polish shortcut. Kept Foundation-only (no
+    /// AppKit) so Config stays portable; KeyMonitor maps it to CGEventFlags.
+    struct PolishModifiers: OptionSet, Equatable {
+        let rawValue: Int
+        static let control = PolishModifiers(rawValue: 1 << 0)
+        static let option  = PolishModifiers(rawValue: 1 << 1)
+        static let shift   = PolishModifiers(rawValue: 1 << 2)
+        static let command = PolishModifiers(rawValue: 1 << 3)
+
+        var glyphs: String {
+            var s = ""
+            if contains(.control) { s += "⌃" }
+            if contains(.option)  { s += "⌥" }
+            if contains(.shift)   { s += "⇧" }
+            if contains(.command) { s += "⌘" }
+            return s
+        }
+    }
+
+    /// A global keyboard shortcut that polishes the last transcription and pastes
+    /// the result. `keyCode` is a virtual key code; `modifiers` must match exactly.
+    struct PolishShortcut: Equatable {
+        let keyCode: Int
+        let modifiers: PolishModifiers
+
+        var displayString: String { modifiers.glyphs + Self.keyName(keyCode) }
+
+        static func keyName(_ code: Int) -> String {
+            switch code {
+            case 49: return "Space"
+            case 35: return "P"
+            case 36: return "Return"
+            default: return "Key \(code)"
+            }
+        }
+    }
+
+    /// Default Polish shortcut: ⌃⌥P (avoids common system chords).
+    static let defaultPolishShortcut = PolishShortcut(keyCode: 35, modifiers: [.control, .option])
+
+    /// Selectable presets for the menu (configurable from day one without a
+    /// fragile live key-recorder).
+    static let polishShortcutPresets: [PolishShortcut] = [
+        PolishShortcut(keyCode: 35, modifiers: [.control, .option]),   // ⌃⌥P
+        PolishShortcut(keyCode: 49, modifiers: [.control, .option]),   // ⌃⌥Space
+        PolishShortcut(keyCode: 35, modifiers: [.control, .command]),  // ⌃⌘P
+        PolishShortcut(keyCode: 35, modifiers: [.option, .command]),   // ⌥⌘P
+    ]
+
+    private static let polishShortcutKeyCodeKey = "PolishShortcutKeyCode"
+    private static let polishShortcutModsKey = "PolishShortcutModifiers"
+
+    static var polishShortcut: PolishShortcut {
+        let d = UserDefaults.standard
+        guard d.object(forKey: polishShortcutKeyCodeKey) != nil else { return defaultPolishShortcut }
+        return PolishShortcut(
+            keyCode: d.integer(forKey: polishShortcutKeyCodeKey),
+            modifiers: PolishModifiers(rawValue: d.integer(forKey: polishShortcutModsKey)))
+    }
+
+    static func setPolishShortcut(_ shortcut: PolishShortcut) {
+        let d = UserDefaults.standard
+        d.set(shortcut.keyCode, forKey: polishShortcutKeyCodeKey)
+        d.set(shortcut.modifiers.rawValue, forKey: polishShortcutModsKey)
     }
 
     // MARK: Whisper Model
@@ -171,6 +230,9 @@ extension Config {
     /// Load configuration from `.env` file if present (development convenience).
     static func load() {
         loadDotEnv()
+        // One-time cleanup: cloud Gemini is gone, so purge any API key a previous
+        // version left in UserDefaults (it was the one piece of cloud config).
+        UserDefaults.standard.removeObject(forKey: legacyGoogleAPIKeyDefaultsKey)
     }
     
     // MARK: - Private
