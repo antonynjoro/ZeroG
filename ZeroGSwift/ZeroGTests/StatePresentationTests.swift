@@ -39,6 +39,15 @@ struct StatePresentationTests {
         #expect(p.glowColor == HUDColors.orbitAmber)
     }
 
+    @Test("Polishing shows the violet polish state")
+    func polishing() {
+        let p = AppState.polishing.presentation
+        #expect(p.showsHUD)
+        #expect(p.hudIconName == "hud-polish")
+        #expect(p.hudStatus == "POLISHING...")
+        #expect(p.glowColor == HUDColors.polishViolet)
+    }
+
     @Test("Success shows only a status row")
     func success() {
         let p = AppState.success.presentation

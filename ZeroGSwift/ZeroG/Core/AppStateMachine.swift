@@ -9,6 +9,8 @@ enum AppState: Equatable {
     case idle
     case recording
     case processing
+    /// Running the on-device polish on the last transcription (post-hoc action).
+    case polishing
     case success
     case error(String)
     /// Paste was blocked by a missing permission; the transcript was copied to
@@ -33,6 +35,7 @@ enum AppState: Equatable {
         case .idle: return "Ready — Hold \(Config.triggerKey.displayName) to record"
         case .recording: return "Recording..."
         case .processing: return "Transcribing..."
+        case .polishing: return "Polishing..."
         case .success: return "Done ✓"
         case .error(let msg): return "Error: \(msg)"
         case .needsPermission(let msg): return "Copied to clipboard — \(msg)"

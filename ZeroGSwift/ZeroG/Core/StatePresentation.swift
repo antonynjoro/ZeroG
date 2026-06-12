@@ -96,6 +96,17 @@ extension AppState {
                 borderColor: HUDColors.orbitAmber.opacity(0.28)
             )
 
+        case .polishing:
+            return StatePresentation(
+                menuSymbol: "wand.and.stars",
+                showsHUD: true,
+                hudIconName: "hud-polish", iconSize: 40,
+                hudTitle: "ZeroG", titleColor: HUDColors.secondaryText,
+                hudStatus: "POLISHING...", statusColor: HUDColors.primaryText,
+                glowColor: HUDColors.polishViolet,
+                borderColor: HUDColors.polishViolet.opacity(0.28)
+            )
+
         case .success:
             return StatePresentation(
                 menuSymbol: "checkmark.circle",

@@ -54,6 +54,7 @@ struct AppStateMachineTests {
             (.idle, "Ready"),
             (.recording, "Recording"),
             (.processing, "Transcribing"),
+            (.polishing, "Polishing"),
             (.success, "Done"),
             (.error("Microphone denied"), "Microphone denied"),
             (.needsPermission("Grant Accessibility to paste"), "Copied to clipboard")
