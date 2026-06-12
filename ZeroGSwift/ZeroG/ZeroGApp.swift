@@ -112,7 +112,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         // Initialize GUI
         statusBarController = StatusBarController(
             stateMachine: stateMachine,
-            onShowPermissions: { [weak self] in self?.onboardingController.show() }
+            onShowPermissions: { [weak self] in self?.onboardingController.show() },
+            onCopyPolished: { [weak self] in self?.copyPolished() }
         )
         hudController = HUDPanelController(stateMachine: stateMachine)
 
@@ -179,6 +180,63 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     }
 
     // MARK: - STT backend (FluidAudio spike)
+
+    // MARK: - On-device Polish
+
+    /// Polish the last transcription on-device and copy the result to the clipboard.
+    private func copyPolished() {
+        runPolish { polished in
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.setString(polished, forType: .string)
+            return true
+        }
+    }
+
+    /// Polish the last transcription on-device and paste it into the focused app.
+    /// Falls back to the clipboard + `.needsPermission` HUD when paste is blocked.
+    private func polishAndPaste() {
+        runPolish { [weak self] polished in
+            guard let self else { return true }
+            if TextInjector.injectText(polished) { return true }
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.setString(polished, forType: .string)
+            self.stateMachine.transition(to: .needsPermission("grant Accessibility to paste"))
+            NotificationCenter.default.post(name: .permissionsNeeded, object: nil)
+            return false   // alternate terminal state set above; skip the success HUD
+        }
+    }
+
+    /// Shared polish runner: transition to `.polishing`, run Foundation Models on
+    /// the last transcription off-main, then hand the result to `apply` on main.
+    /// `apply` returns whether to show the success HUD (false = it set its own
+    /// terminal state, e.g. the paste-blocked fallback).
+    private func runPolish(_ apply: @escaping (String) -> Bool) {
+        guard let text = stateMachine.lastTranscription, !text.isEmpty else { return }
+        guard PolishService.isAvailable else { return }
+        guard stateMachine.currentState.isReady else { return }   // not mid-record/processing
+
+        stateMachine.transition(to: .polishing)
+        Task.detached { [weak self] in
+            guard let self else { return }
+            do {
+                let out = try await PolishService.polish(text)
+                await MainActor.run {
+                    if apply(out) {
+                        self.stateMachine.transition(to: .success)
+                        self.stateMachine.resetToIdle()
+                    }
+                }
+            } catch {
+                Log.error("Polish", "Failed: \(error.localizedDescription)")
+                await MainActor.run {
+                    self.stateMachine.transition(to: .error("Polish Failed"))
+                    self.stateMachine.resetToIdle(after: Config.Timing.errorReset)
+                }
+            }
+        }
+    }
 
     /// Build the live transcription engine for the selected backend. Only the chosen one is
     /// instantiated, so we never load Whisper and Parakeet models at the same time.

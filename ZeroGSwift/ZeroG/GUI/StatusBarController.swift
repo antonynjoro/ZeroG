@@ -4,16 +4,19 @@ import Combine
 // MARK: - Status Bar Controller
 
 /// Manages the macOS status bar (menu bar) icon, dropdown menu, and status text.
-final class StatusBarController {
-    
+final class StatusBarController: NSObject, NSMenuDelegate {
+
     // MARK: Properties
-    
+
     private var statusItem: NSStatusItem!
     private var statusMenuItem: NSMenuItem!
     /// Shown only while the key tap is dead (Accessibility missing, so the
     /// hotkey can't fire). Hidden once the tap is live.
     private var hotkeyDisabledMenuItem: NSMenuItem!
     private var copyTranscriptionMenuItem: NSMenuItem!
+    private var polishMenuItem: NSMenuItem!
+    /// Disabled note shown under the polish item when polish is unavailable.
+    private var polishReasonMenuItem: NSMenuItem!
     private var triggerKeySubmenu: NSMenu!
     private var cancellables = Set<AnyCancellable>()
 
@@ -24,12 +27,18 @@ final class StatusBarController {
     /// Opens the permissions / setup wizard.
     private let onShowPermissions: () -> Void
 
+    /// Polishes the last transcription on-device and copies the result.
+    private let onCopyPolished: () -> Void
+
     // MARK: Initialization
 
     init(stateMachine: AppStateMachine,
-         onShowPermissions: @escaping () -> Void = {}) {
+         onShowPermissions: @escaping () -> Void = {},
+         onCopyPolished: @escaping () -> Void = {}) {
         self.stateMachine = stateMachine
         self.onShowPermissions = onShowPermissions
+        self.onCopyPolished = onCopyPolished
+        super.init()
 
         setupStatusItem()
         observeState()
@@ -91,9 +100,30 @@ final class StatusBarController {
         copyTranscriptionMenuItem.target = self
         copyTranscriptionMenuItem.isEnabled = false
         menu.addItem(copyTranscriptionMenuItem)
-        
+
+        // Copy Polished Version (on-device Apple Foundation Models)
+        polishMenuItem = NSMenuItem(
+            title: "Copy Polished Version",
+            action: #selector(copyPolished),
+            keyEquivalent: ""
+        )
+        polishMenuItem.target = self
+        polishMenuItem.isEnabled = false
+        menu.addItem(polishMenuItem)
+
+        // Reason shown when polish is unavailable (macOS <26 / Apple Intelligence off)
+        polishReasonMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        polishReasonMenuItem.isEnabled = false
+        polishReasonMenuItem.isHidden = true
+        menu.addItem(polishReasonMenuItem)
+
         menu.addItem(NSMenuItem.separator())
-        
+
+        // About
+        let aboutItem = NSMenuItem(title: "About ZeroG", action: #selector(showAbout), keyEquivalent: "")
+        aboutItem.target = self
+        menu.addItem(aboutItem)
+
         // Quit
         let quitItem = NSMenuItem(
             title: "Quit ZeroG",
@@ -101,9 +131,28 @@ final class StatusBarController {
             keyEquivalent: "q"
         )
         menu.addItem(quitItem)
-        
+
+        menu.delegate = self
         statusItem.menu = menu
         updateUI(for: .loading("Starting up..."))
+    }
+
+    // MARK: - NSMenuDelegate
+
+    /// Refresh dynamic enablement each time the menu opens — polish availability
+    /// (Apple Intelligence can be toggled) and whether there's a transcription to act on.
+    func menuWillOpen(_ menu: NSMenu) {
+        let hasText = stateMachine.lastTranscription != nil
+        copyTranscriptionMenuItem.isEnabled = hasText
+
+        let available = PolishService.isAvailable
+        polishMenuItem.isEnabled = available && hasText
+        if let reason = PolishService.unavailableReason {
+            polishReasonMenuItem.title = reason
+            polishReasonMenuItem.isHidden = false
+        } else {
+            polishReasonMenuItem.isHidden = true
+        }
     }
     
     // MARK: - State Observation
@@ -168,12 +217,32 @@ final class StatusBarController {
     }
 
     // MARK: - Copy Last Transcription
-    
+
     @objc private func copyLastTranscription() {
         guard let text = stateMachine.lastTranscription else { return }
-        
+
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+    }
+
+    // MARK: - Polish
+
+    @objc private func copyPolished() {
+        onCopyPolished()
+    }
+
+    // MARK: - About
+
+    @objc private func showAbout() {
+        NSApp.activate(ignoringOtherApps: true)
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
+        let alert = NSAlert()
+        alert.messageText = "ZeroG \(version)"
+        alert.informativeText = "Build \(build)\n\nPrivacy-first voice typing. Everything runs on your Mac — your audio and text never leave it."
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 }
