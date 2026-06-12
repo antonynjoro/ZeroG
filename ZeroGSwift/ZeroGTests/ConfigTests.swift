@@ -43,6 +43,27 @@ struct ConfigTests {
 
         #expect(Config.isDebugEnabled == true)
     }
+
+    @Test("Polish shortcut defaults to ⌃⌥P and round-trips through UserDefaults")
+    func polishShortcutStorage() {
+        let d = UserDefaults.standard
+        let prevKey = d.object(forKey: "PolishShortcutKeyCode")
+        let prevMods = d.object(forKey: "PolishShortcutModifiers")
+        d.removeObject(forKey: "PolishShortcutKeyCode")
+        d.removeObject(forKey: "PolishShortcutModifiers")
+        defer {
+            restore(prevKey, forKey: "PolishShortcutKeyCode")
+            restore(prevMods, forKey: "PolishShortcutModifiers")
+        }
+
+        #expect(Config.polishShortcut == Config.defaultPolishShortcut)
+        #expect(Config.defaultPolishShortcut.displayString == "⌃⌥P")
+
+        let custom = Config.PolishShortcut(keyCode: 49, modifiers: [.control, .option])
+        Config.setPolishShortcut(custom)
+        #expect(Config.polishShortcut == custom)
+        #expect(custom.displayString == "⌃⌥Space")
+    }
 }
 
 private func restore(_ value: Any?, forKey key: String) {

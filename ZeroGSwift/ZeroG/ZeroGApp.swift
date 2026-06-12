@@ -74,7 +74,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
                 self?.audioRecorder.beginProcessing()
             }
         )
-        
+        // Global Polish shortcut → polish the last transcription and paste it.
+        keyMonitor.onPolishShortcut = { [weak self] in self?.polishAndPaste() }
+
         // Permissions + onboarding wizard
         permissionsManager = PermissionsManager()
         onboardingController = OnboardingWindowController(permissions: permissionsManager)

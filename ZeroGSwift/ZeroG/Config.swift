@@ -84,6 +84,74 @@ enum Config {
         NotificationCenter.default.post(name: .triggerKeyDidChange, object: nil, userInfo: [NotificationKeys.triggerKey: key])
     }
 
+    // MARK: Polish Shortcut
+
+    /// Modifier subset for the global Polish shortcut. Kept Foundation-only (no
+    /// AppKit) so Config stays portable; KeyMonitor maps it to CGEventFlags.
+    struct PolishModifiers: OptionSet, Equatable {
+        let rawValue: Int
+        static let control = PolishModifiers(rawValue: 1 << 0)
+        static let option  = PolishModifiers(rawValue: 1 << 1)
+        static let shift   = PolishModifiers(rawValue: 1 << 2)
+        static let command = PolishModifiers(rawValue: 1 << 3)
+
+        var glyphs: String {
+            var s = ""
+            if contains(.control) { s += "⌃" }
+            if contains(.option)  { s += "⌥" }
+            if contains(.shift)   { s += "⇧" }
+            if contains(.command) { s += "⌘" }
+            return s
+        }
+    }
+
+    /// A global keyboard shortcut that polishes the last transcription and pastes
+    /// the result. `keyCode` is a virtual key code; `modifiers` must match exactly.
+    struct PolishShortcut: Equatable {
+        let keyCode: Int
+        let modifiers: PolishModifiers
+
+        var displayString: String { modifiers.glyphs + Self.keyName(keyCode) }
+
+        static func keyName(_ code: Int) -> String {
+            switch code {
+            case 49: return "Space"
+            case 35: return "P"
+            case 36: return "Return"
+            default: return "Key \(code)"
+            }
+        }
+    }
+
+    /// Default Polish shortcut: ⌃⌥P (avoids common system chords).
+    static let defaultPolishShortcut = PolishShortcut(keyCode: 35, modifiers: [.control, .option])
+
+    /// Selectable presets for the menu (configurable from day one without a
+    /// fragile live key-recorder).
+    static let polishShortcutPresets: [PolishShortcut] = [
+        PolishShortcut(keyCode: 35, modifiers: [.control, .option]),   // ⌃⌥P
+        PolishShortcut(keyCode: 49, modifiers: [.control, .option]),   // ⌃⌥Space
+        PolishShortcut(keyCode: 35, modifiers: [.control, .command]),  // ⌃⌘P
+        PolishShortcut(keyCode: 35, modifiers: [.option, .command]),   // ⌥⌘P
+    ]
+
+    private static let polishShortcutKeyCodeKey = "PolishShortcutKeyCode"
+    private static let polishShortcutModsKey = "PolishShortcutModifiers"
+
+    static var polishShortcut: PolishShortcut {
+        let d = UserDefaults.standard
+        guard d.object(forKey: polishShortcutKeyCodeKey) != nil else { return defaultPolishShortcut }
+        return PolishShortcut(
+            keyCode: d.integer(forKey: polishShortcutKeyCodeKey),
+            modifiers: PolishModifiers(rawValue: d.integer(forKey: polishShortcutModsKey)))
+    }
+
+    static func setPolishShortcut(_ shortcut: PolishShortcut) {
+        let d = UserDefaults.standard
+        d.set(shortcut.keyCode, forKey: polishShortcutKeyCodeKey)
+        d.set(shortcut.modifiers.rawValue, forKey: polishShortcutModsKey)
+    }
+
     // MARK: Whisper Model
 
     /// The WhisperKit model variant to use.

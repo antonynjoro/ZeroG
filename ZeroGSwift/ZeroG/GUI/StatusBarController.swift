@@ -17,6 +17,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private var polishMenuItem: NSMenuItem!
     /// Disabled note shown under the polish item when polish is unavailable.
     private var polishReasonMenuItem: NSMenuItem!
+    private var polishShortcutSubmenu: NSMenu!
     private var triggerKeySubmenu: NSMenu!
     private var cancellables = Set<AnyCancellable>()
 
@@ -116,6 +117,13 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         polishReasonMenuItem.isEnabled = false
         polishReasonMenuItem.isHidden = true
         menu.addItem(polishReasonMenuItem)
+
+        // Polish Shortcut (paste-polished) preset picker
+        let shortcutItem = NSMenuItem(title: "Polish Shortcut", action: nil, keyEquivalent: "")
+        polishShortcutSubmenu = NSMenu()
+        rebuildPolishShortcutSubmenu()
+        shortcutItem.submenu = polishShortcutSubmenu
+        menu.addItem(shortcutItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -230,6 +238,27 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     @objc private func copyPolished() {
         onCopyPolished()
+    }
+
+    private func rebuildPolishShortcutSubmenu() {
+        polishShortcutSubmenu.removeAllItems()
+        let current = Config.polishShortcut
+        for preset in Config.polishShortcutPresets {
+            let item = NSMenuItem(
+                title: preset.displayString,
+                action: #selector(polishShortcutSelected(_:)),
+                keyEquivalent: "")
+            item.target = self
+            item.representedObject = preset
+            item.state = (preset == current) ? .on : .off
+            polishShortcutSubmenu.addItem(item)
+        }
+    }
+
+    @objc private func polishShortcutSelected(_ sender: NSMenuItem) {
+        guard let shortcut = sender.representedObject as? Config.PolishShortcut else { return }
+        Config.setPolishShortcut(shortcut)
+        rebuildPolishShortcutSubmenu()
     }
 
     // MARK: - About

@@ -22,6 +22,8 @@ final class KeyMonitor {
     private let onStartRecording: () -> Void
     /// Requests that recording end and processing begin.
     private let onStopRecording: () -> Void
+    /// Fired when the global Polish shortcut chord is pressed (any time).
+    var onPolishShortcut: (() -> Void)?
 
     // MARK: State
 
@@ -206,6 +208,30 @@ final class KeyMonitor {
                 triggerReleased()
             }
         }
+
+        // Global Polish shortcut: a keyDown whose keyCode + modifiers match the
+        // configured chord exactly (ignore auto-repeat so it fires once per press).
+        if type == .keyDown,
+           event.getIntegerValueField(.keyboardEventAutorepeat) == 0,
+           matchesPolishShortcut(event) {
+            DispatchQueue.main.async { [weak self] in self?.onPolishShortcut?() }
+        }
+    }
+
+    /// Exact match against `Config.polishShortcut`: the keyCode and the four
+    /// modifier masks must all agree (no extra modifiers held).
+    private func matchesPolishShortcut(_ event: CGEvent) -> Bool {
+        let shortcut = Config.polishShortcut
+        guard event.getIntegerValueField(.keyboardEventKeycode) == Int64(shortcut.keyCode) else { return false }
+        let flags = event.flags
+        let pairs: [(Config.PolishModifiers, CGEventFlags)] = [
+            (.control, .maskControl), (.option, .maskAlternate),
+            (.shift, .maskShift),     (.command, .maskCommand),
+        ]
+        for (mod, cg) in pairs where shortcut.modifiers.contains(mod) != flags.contains(cg) {
+            return false
+        }
+        return true
     }
 
     // MARK: - Trigger Key Actions
