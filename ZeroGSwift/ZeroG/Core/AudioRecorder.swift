@@ -157,7 +157,8 @@ final class AudioRecorder: @unchecked Sendable {
         while idx + windowSize <= samples.count {
             var sumSq: Float = 0
             samples.withUnsafeBufferPointer { ptr in
-                vDSP_svesq(ptr.baseAddress! + idx, 1, &sumSq, vDSP_Length(windowSize))
+                guard let base = ptr.baseAddress else { return }
+                vDSP_svesq(base + idx, 1, &sumSq, vDSP_Length(windowSize))
             }
             let rms = sqrt(sumSq / Float(windowSize))
             if rms >= Config.silenceThreshold {
@@ -201,7 +202,8 @@ final class AudioRecorder: @unchecked Sendable {
         var rms: Float = 0
         if !samples.isEmpty {
             samples.withUnsafeBufferPointer { ptr in
-                vDSP_rmsqv(ptr.baseAddress!, 1, &rms, vDSP_Length(samples.count))
+                guard let base = ptr.baseAddress else { return }
+                vDSP_rmsqv(base, 1, &rms, vDSP_Length(samples.count))
             }
         }
         let normalizedLevel = min(1.0, rms * 10.0)

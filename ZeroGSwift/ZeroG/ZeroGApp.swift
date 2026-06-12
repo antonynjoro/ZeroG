@@ -115,7 +115,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         statusBarController = StatusBarController(
             stateMachine: stateMachine,
             onShowPermissions: { [weak self] in self?.onboardingController.show() },
-            onCopyPolished: { [weak self] in self?.copyPolished() }
+            onCopyPolished: { [weak self] in self?.copyPolished() },
+            onRetryModel: { [weak self] in self?.startModelLoad() }
         )
         hudController = HUDPanelController(stateMachine: stateMachine)
 
@@ -143,27 +144,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
             onboardingController.show()
         }
 
-        // Show loading state and download model
-        stateMachine.transition(to: .loading("Starting up..."))
-        
-        // Wire progress updates to the menu bar status
+        // Wire progress updates to the menu bar status, then download + load.
         transcriptionEngine.onStatusUpdate = { [weak self] message in
             self?.stateMachine.transition(to: .loading(message))
         }
-        
+
+        startModelLoad()
+    }
+
+    /// Load the speech model (timeout + one retry live inside the engine). On
+    /// terminal failure, surface a retryable error and expose the menu's
+    /// "Retry Model Download" item instead of leaving a dead "Model Failed" HUD.
+    private func startModelLoad() {
+        statusBarController.setModelRetryVisible(false)
+        stateMachine.transition(to: .loading("Starting up..."))
         Task.detached { [weak self] in
             guard let self else { return }
             do {
                 try await self.transcriptionEngine.initialize()
-                
                 DispatchQueue.main.async {
                     self.stateMachine.transition(to: .idle)
                     Log.debug("ZeroGApp", "🧑‍🚀 ZeroG Ready — Hold \(Config.triggerKey.displayName) to start recording")
                 }
             } catch {
-                Log.error("ZeroGApp", "⚠️ WhisperKit initialization failed: \(error)")
+                Log.error("ZeroGApp", "Model load failed: \(error.localizedDescription)")
                 DispatchQueue.main.async {
-                    self.stateMachine.transition(to: .error("Model Failed"))
+                    self.stateMachine.transition(to: .error("Model failed — retry from the menu"))
+                    self.statusBarController.setModelRetryVisible(true)
                 }
             }
         }

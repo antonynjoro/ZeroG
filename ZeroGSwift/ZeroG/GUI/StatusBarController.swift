@@ -14,6 +14,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     /// hotkey can't fire). Hidden once the tap is live.
     private var hotkeyDisabledMenuItem: NSMenuItem!
     private var copyTranscriptionMenuItem: NSMenuItem!
+    /// Shown only after the speech model fails to load — lets the user retry
+    /// without relaunching.
+    private var retryModelMenuItem: NSMenuItem!
     private var polishMenuItem: NSMenuItem!
     /// Disabled note shown under the polish item when polish is unavailable.
     private var polishReasonMenuItem: NSMenuItem!
@@ -31,14 +34,19 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     /// Polishes the last transcription on-device and copies the result.
     private let onCopyPolished: () -> Void
 
+    /// Retries loading the speech model after a failed load.
+    private let onRetryModel: () -> Void
+
     // MARK: Initialization
 
     init(stateMachine: AppStateMachine,
          onShowPermissions: @escaping () -> Void = {},
-         onCopyPolished: @escaping () -> Void = {}) {
+         onCopyPolished: @escaping () -> Void = {},
+         onRetryModel: @escaping () -> Void = {}) {
         self.stateMachine = stateMachine
         self.onShowPermissions = onShowPermissions
         self.onCopyPolished = onCopyPolished
+        self.onRetryModel = onRetryModel
         super.init()
 
         setupStatusItem()
@@ -62,6 +70,12 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         hotkeyDisabledMenuItem.isEnabled = false
         hotkeyDisabledMenuItem.isHidden = true
         menu.addItem(hotkeyDisabledMenuItem)
+
+        // Retry Model Download (hidden unless the model failed to load)
+        retryModelMenuItem = NSMenuItem(title: "Retry Model Download", action: #selector(retryModel), keyEquivalent: "")
+        retryModelMenuItem.target = self
+        retryModelMenuItem.isHidden = true
+        menu.addItem(retryModelMenuItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -222,6 +236,15 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     /// in the menu when the key tap isn't running (Accessibility missing).
     func updateHotkeyStatus(hotkeyLive: Bool) {
         hotkeyDisabledMenuItem.isHidden = hotkeyLive
+    }
+
+    /// Show/hide the "Retry Model Download" item after a model-load failure.
+    func setModelRetryVisible(_ visible: Bool) {
+        retryModelMenuItem?.isHidden = !visible
+    }
+
+    @objc private func retryModel() {
+        onRetryModel()
     }
 
     // MARK: - Copy Last Transcription
